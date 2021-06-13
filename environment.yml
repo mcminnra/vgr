@@ -4,6 +4,14 @@ channels:
   - defaults
 dependencies:
   - python>=3.8
+  - lxml
+  - numpy
+  - pandas
+  - requests
+  - rich
+  - scikit-learn
+  - shap
+  - openpyxl
   - pip
   - pip:
     - xgboost
