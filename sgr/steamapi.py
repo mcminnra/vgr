@@ -58,6 +58,11 @@ def get_steam_store_html(appid):
     return html.fromstring(r.text)
 
 
+def get_name_from_html(steam_store_tree):
+    name = str(steam_store_tree.xpath('//div[@id="appHubAppName"]/text()')[0]).strip()
+    return name
+
+
 def get_reviews_from_html(steam_store_tree):
     # Reviews
     reviews = [review.strip() for review in steam_store_tree.xpath('//span[@class="nonresponsive_hidden responsive_reviewdesc"]/text()') if '%' in review]
@@ -91,6 +96,16 @@ def get_short_desc_from_html(steam_store_tree):
     return short_desc
 
 
+def get_long_desc_from_html(steam_store_tree):
+    desc_element = steam_store_tree.xpath('//div[@id="game_area_description"]/text()')
+
+    long_desc = ""
+    if desc_element:
+        long_desc = ''.join(desc_element).strip()
+        
+    return long_desc
+
+
 def get_tags_from_html(steam_store_tree):
     """
     Gets the app tags from a Steam Store Page
@@ -105,20 +120,23 @@ def get_store_data(appid):
 
     # Init data
     data = {
+        'name': None,
         'recent_percent': None,
         'recent_count': None,
         'all_percent': None,
         'all_count': None,
         'short_desc': None,
+        'long_desc': None,
         'tags': None
     }
 
     try:
+        data['name'] = get_name_from_html(tree)
         data['recent_percent'], data['recent_count'], data['all_percent'], data['all_count'] = get_reviews_from_html(tree)
         data['short_desc'] = get_short_desc_from_html(tree)
+        data['long_desc'] = get_long_desc_from_html(tree)
         data['tags'] = get_tags_from_html(tree)
     except Exception as e:
-        print(e)
-        print(appid)
+        print(f'Failed pulling store data for {appid} - Does https://store.steampowered.com/app/{appid} exist?')
 
     return data

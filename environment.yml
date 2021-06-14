@@ -4,6 +4,7 @@ channels:
   - defaults
 dependencies:
   - python>=3.8
+  - jupyter
   - lxml
   - numpy
   - pandas
@@ -14,4 +15,5 @@ dependencies:
   - openpyxl
   - pip
   - pip:
+    - sentence-transformers
     - xgboost
