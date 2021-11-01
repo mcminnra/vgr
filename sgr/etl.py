@@ -5,27 +5,27 @@ from steamapi import get_library_appids, get_wishlist_appids, get_store_data
 
 def get_data(df_input):
     # Process scores df
-    df = df_input[df_input['AppID'].notnull()]
-    df = df.astype({'AppID': int})
-    df = df[['AppID', 'Score']]
+    df = df_input[df_input['Steam AppID'].notnull()]
+    df = df.astype({'Steam AppID': int})
+    df = df[['Steam AppID', 'Rating']]
     print(f'Number of Reviewed Steam Games: {df.shape[0]}')
 
     # Get library appids
     appids_library = get_library_appids()
-    df_library = pd.DataFrame({'AppID': appids_library, 'Score':None})
-    df_library = df_library.astype({'AppID': int})
+    df_library = pd.DataFrame({'Steam AppID': appids_library, 'Rating':None})
+    df_library = df_library.astype({'Steam AppID': int})
     print(f'Number of Steam Games Found in Library: {df_library.shape[0]}')
 
     # Get wishlist appids
     appids_wishlist = get_wishlist_appids()
-    df_wishlist = pd.DataFrame({'AppID': appids_wishlist, 'Score':None})
-    df_wishlist = df_wishlist.astype({'AppID': int})
+    df_wishlist = pd.DataFrame({'Steam AppID': appids_wishlist, 'Rating':None})
+    df_wishlist = df_wishlist.astype({'Steam AppID': int})
     print(f'Number of Steam Games Found in Wishlist: {df_wishlist.shape[0]}')
 
     # Join appids
-    df = df.merge(df_library, on='AppID', how='outer', suffixes=('', '_y'))[['AppID', 'Score']]
-    df = df.merge(df_wishlist, on='AppID', how='outer', suffixes=('', '_y'))[['AppID', 'Score']]
-    df = df.set_index('AppID')
+    df = df.merge(df_library, on='Steam AppID', how='outer', suffixes=('', '_y'))[['Steam AppID', 'Rating']]
+    df = df.merge(df_wishlist, on='Steam AppID', how='outer', suffixes=('', '_y'))[['Steam AppID', 'Rating']]
+    df = df.set_index('Steam AppID')
 
     # Enrich appids
     for appid in track(df.index.values, description='Enriching with Steam store data'):

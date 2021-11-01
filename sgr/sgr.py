@@ -14,7 +14,7 @@ parser = argparse.ArgumentParser(description='Steam Games Recommender')
 parser.add_argument(
     'reviews_filepath',
     type=str,
-    help='Reviews input filepath that has a "AppID" and "Score" columns.')
+    help='Reviews input filepath that has a "Steam AppID" and "Rating" columns.')
 
 if __name__ == '__main__':
     # get print console
@@ -26,7 +26,7 @@ if __name__ == '__main__':
     ### ETL    
     # Get reviewed games
     print(f'Reviews Input Path: {args.reviews_filepath}')
-    df_scores = pd.read_excel(args.reviews_filepath, skiprows=2)
+    df_scores = pd.read_excel(args.reviews_filepath)
 
     # Create data by getting library and wishlist games and enriching input
     df = get_data(df_scores)
