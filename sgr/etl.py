@@ -73,28 +73,28 @@ def preprocess_data(df):
     model.max_seq_length = 300
     # Process short_desc
     # Get short_desc embeddings
-    df['short_desc_emb'] = None
+    df['emb_short_desc'] = None
     for idx, sentence in zip(df.index, df['short_desc'].values):
         sentence_emb = model.encode(sentence)
-        df.at[idx, 'short_desc_emb'] = sentence_emb
+        df.at[idx, 'emb_short_desc'] = sentence_emb
 
     # Explode short_desc_emb to multiple cols
-    emb_len = df['short_desc_emb'].values[0].shape[0]
-    emb_cols = [f'short_desc_emb_{i}' for i in range(0, emb_len)]
-    df[emb_cols] = pd.DataFrame(df['short_desc_emb'].tolist(), index=df.index)
-    df = df.drop(['short_desc_emb'], axis=1)
+    emb_len = df['emb_short_desc'].values[0].shape[0]
+    emb_cols = [f'emb_short_desc_{i}' for i in range(0, emb_len)]
+    df[emb_cols] = pd.DataFrame(df['emb_short_desc'].tolist(), index=df.index)
+    df = df.drop(['emb_short_desc'], axis=1)
 
     # Process long_desc
     # Get long_desc embeddings
-    df['long_desc_emb'] = None
+    df['emb_long_desc'] = None
     for idx, sentence in zip(df.index, df['long_desc'].values):
         sentence_emb = model.encode(sentence)
-        df.at[idx, 'long_desc_emb'] = sentence_emb
+        df.at[idx, 'emb_long_desc'] = sentence_emb
 
     # Explode short_desc_emb to multiple cols
-    emb_len = df['long_desc_emb'].values[0].shape[0]
-    emb_cols = [f'long_desc_emb_{i}' for i in range(0, emb_len)]
-    df[emb_cols] = pd.DataFrame(df['long_desc_emb'].tolist(), index=df.index)
-    df = df.drop(['long_desc_emb'], axis=1)
+    emb_len = df['emb_long_desc'].values[0].shape[0]
+    emb_cols = [f'emb_long_desc_{i}' for i in range(0, emb_len)]
+    df[emb_cols] = pd.DataFrame(df['emb_long_desc'].tolist(), index=df.index)
+    df = df.drop(['emb_long_desc'], axis=1)
 
     return df

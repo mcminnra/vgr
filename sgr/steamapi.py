@@ -1,9 +1,9 @@
 import json
-import requests
 import time
 import xml.etree.ElementTree as ET
 
 from lxml import html
+import requests
 
 WAIT_FOR_RESP_DOWNLOAD = 0.10
 

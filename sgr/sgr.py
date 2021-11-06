@@ -28,7 +28,9 @@ if __name__ == '__main__':
     # Get args
     args = parser.parse_args()
 
-    ### ETL
+    # ==============================================================================================
+    # Get Data
+    # ==============================================================================================
     # Get reviewed games
     print(f'Reviews Input Path: {args.reviews_filepath}')
     df = pd.read_excel(args.reviews_filepath)
@@ -38,26 +40,47 @@ if __name__ == '__main__':
     df.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/raw.csv')  # cache
     del df
 
-    ### Data Pre-processing
+    # ==============================================================================================
+    # Data Pre-processing
+    # ==============================================================================================
     df = pd.read_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/raw.csv')
     df = preprocess_data(df)
     df.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/processed.csv')  # cache
     del df
 
-    ### Model Training
+    # ==============================================================================================
+    # Feature Engineering
+    # ==============================================================================================
     df = pd.read_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/processed.csv').set_index('Steam AppID')
     
     normalized_cols = [col for col in df.columns if '_norm' in col]
     tag_cols = [col for col in df.columns if 'tags_' in col]
-    embedding_cols = [col for col in df.columns if '_emb' in col]
+    embedding_cols = [col for col in df.columns if 'emb_' in col]
 
-    df_train = df[df['Rating'].notnull()]
-    df_pred = df[df['Rating'].isnull()]
+    # Log
+    df_log = np.log(df[normalized_cols+tag_cols+embedding_cols]).fillna(0).add_suffix('_log')
+    df_log[df_log == -np.inf] = 0
 
-    X_train = df_train[normalized_cols+tag_cols+embedding_cols]
-    X_pred = df_pred[normalized_cols+tag_cols+embedding_cols]
+    # Pow
+    df_pow = np.power(df[normalized_cols+tag_cols+embedding_cols], 2).fillna(0).add_suffix('_pow')
+    df_pow[df_pow == np.inf] = 0
+    
+    df = df.merge(df_log, how='inner', right_index=True, left_index=True)
+    df = df.merge(df_pow, how='inner', right_index=True, left_index=True)
+    del df_log, df_pow
+
+    rating_idx = df['Rating'].notnull()
+    df_train = df[rating_idx]
+    df_pred = df[-rating_idx]
+
+    feature_cols = [col for col in df.columns if '_norm' in col or 'tags_' in col or 'emb_' in col]
+    X_train = df_train[feature_cols]
+    X_pred = df_pred[feature_cols]
     y_train = df_train['Rating']
 
+    # ==============================================================================================
+    # Model Training
+    # ==============================================================================================
     # Fit Model
     model = XGBRegressor(
         max_depth=4,  # 32
@@ -98,13 +121,18 @@ if __name__ == '__main__':
     tag_imp = np.mean([imp for col, imp in feat_imp if 'tags_' in col])
     short_desc_imp = np.mean([imp for col, imp in feat_imp if 'short_desc_' in col])
     long_desc_imp = np.mean([imp for col, imp in feat_imp if 'long_desc_' in col])
+    recent_percent_imp = np.mean([imp for col, imp in feat_imp if 'recent_percent_' in col])
+    recent_count_imp = np.mean([imp for col, imp in feat_imp if 'recent_count_' in col])
+    all_percent_imp = np.mean([imp for col, imp in feat_imp if 'all_percent_' in col])
+    all_count_imp = np.mean([imp for col, imp in feat_imp if 'all_count_' in col])
 
     print(f'Tag Avg. Importance: {tag_imp:0.6f}')
     print(f'Short Desc. Avg. Importance: {short_desc_imp:0.6f}')
     print(f'Long Desc Avg. Importance: {long_desc_imp:0.6f}')
-    for col, imp in feat_imp:
-        if '_norm' in col:
-            print(f'{col} Importance: {imp:0.6f}')
+    print(f'Recent Count Avg. Importance: {recent_count_imp:0.6f}')
+    print(f'Recent Percent Avg. Importance: {recent_percent_imp:0.6f}')
+    print(f'All Count Avg. Importance: {all_count_imp:0.6f}')
+    print(f'All Percent Avg. Importance: {all_percent_imp:0.6f}')
 
     print('\nTop 10 Tags')
     tags = [(name, imp) for name, imp in feat_imp if 'tags_' in name]
@@ -112,4 +140,3 @@ if __name__ == '__main__':
         print(name, imp)
 
     pickle.dump(model, open(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/model.pkl', 'wb'))
-    

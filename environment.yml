@@ -13,7 +13,7 @@ dependencies:
   - scikit-learn
   - shap
   - openpyxl
+  - xgboost
   - pip
   - pip:
     - sentence-transformers
-    - xgboost
