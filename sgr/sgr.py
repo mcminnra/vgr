@@ -11,7 +11,7 @@ from rich.console import Console
 from sklearn.model_selection import GridSearchCV, cross_val_score
 from xgboost import XGBRegressor
 
-from etl import get_data, preprocess_data
+from etl import get_data, process_data
 
 # CLI
 parser = argparse.ArgumentParser(description='Steam Games Recommender')
@@ -22,52 +22,36 @@ parser.add_argument(
 )
 
 if __name__ == '__main__':
-    # get print console
-    console = Console()
+    # # get print console
+    # console = Console()
 
-    # Get args
-    args = parser.parse_args()
+    # # Get args
+    # args = parser.parse_args()
+
+    # # ==============================================================================================
+    # # Get Data
+    # # ==============================================================================================
+    # # Get reviewed games
+    # print(f'Reviews Input Path: {args.reviews_filepath}')
+    # df = pd.read_excel(args.reviews_filepath)
+
+    # # Create data by getting library and wishlist games and enriching input
+    # df = get_data(df)
+    # df.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/raw.csv')  # cache
+    # del df
+
+    # # ==============================================================================================
+    # # Data processing and Feature Engineering
+    # # ==============================================================================================
+    # df = pd.read_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/raw.csv')
+    # df = process_data(df)
+    # df.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/processed.csv')  # cache
+    # del df
 
     # ==============================================================================================
-    # Get Data
-    # ==============================================================================================
-    # Get reviewed games
-    print(f'Reviews Input Path: {args.reviews_filepath}')
-    df = pd.read_excel(args.reviews_filepath)
-
-    # Create data by getting library and wishlist games and enriching input
-    df = get_data(df)
-    df.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/raw.csv')  # cache
-    del df
-
-    # ==============================================================================================
-    # Data Pre-processing
-    # ==============================================================================================
-    df = pd.read_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/raw.csv')
-    df = preprocess_data(df)
-    df.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/processed.csv')  # cache
-    del df
-
-    # ==============================================================================================
-    # Feature Engineering
+    # Model Training
     # ==============================================================================================
     df = pd.read_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/processed.csv').set_index('Steam AppID')
-    
-    normalized_cols = [col for col in df.columns if '_norm' in col]
-    tag_cols = [col for col in df.columns if 'tags_' in col]
-    embedding_cols = [col for col in df.columns if 'emb_' in col]
-
-    # Log
-    df_log = np.log(df[normalized_cols+tag_cols+embedding_cols]).fillna(0).add_suffix('_log')
-    df_log[df_log == -np.inf] = 0
-
-    # Pow
-    df_pow = np.power(df[normalized_cols+tag_cols+embedding_cols], 2).fillna(0).add_suffix('_pow')
-    df_pow[df_pow == np.inf] = 0
-    
-    df = df.merge(df_log, how='inner', right_index=True, left_index=True)
-    df = df.merge(df_pow, how='inner', right_index=True, left_index=True)
-    del df_log, df_pow
 
     rating_idx = df['Rating'].notnull()
     df_train = df[rating_idx]
@@ -78,9 +62,6 @@ if __name__ == '__main__':
     X_pred = df_pred[feature_cols]
     y_train = df_train['Rating']
 
-    # ==============================================================================================
-    # Model Training
-    # ==============================================================================================
     # Fit Model
     model = XGBRegressor(
         max_depth=4,  # 32
@@ -139,4 +120,6 @@ if __name__ == '__main__':
     for name, imp in sorted(tags, key=lambda x: x[1], reverse=True)[:10]:
         print(name, imp)
 
+    # Output
+    df_pred.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/scores.csv')
     pickle.dump(model, open(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/model.pkl', 'wb'))

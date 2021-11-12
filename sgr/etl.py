@@ -1,5 +1,6 @@
 from ast import literal_eval
 
+import numpy as np
 import pandas as pd
 from rich.progress import track
 from sentence_transformers import SentenceTransformer
@@ -50,7 +51,7 @@ def get_data(df):
 
     return df
 
-def preprocess_data(df):
+def process_data(df):
     df = df.set_index('Steam AppID')
 
     # Fill Null
@@ -96,5 +97,22 @@ def preprocess_data(df):
     emb_cols = [f'emb_long_desc_{i}' for i in range(0, emb_len)]
     df[emb_cols] = pd.DataFrame(df['emb_long_desc'].tolist(), index=df.index)
     df = df.drop(['emb_long_desc'], axis=1)
+
+    ### Feature transforms
+    normalized_cols = [col for col in df.columns if '_norm' in col]
+    tag_cols = [col for col in df.columns if 'tags_' in col]
+    embedding_cols = [col for col in df.columns if 'emb_' in col]
+
+    # Log
+    df_log = np.log(df[normalized_cols+tag_cols+embedding_cols]).fillna(0).add_suffix('_log')
+    df_log[df_log == -np.inf] = 0
+
+    # Pow
+    df_pow = np.power(df[normalized_cols+tag_cols+embedding_cols], 2).fillna(0).add_suffix('_pow')
+    df_pow[df_pow == np.inf] = 0
+    
+    df = df.merge(df_log, how='inner', right_index=True, left_index=True)
+    df = df.merge(df_pow, how='inner', right_index=True, left_index=True)
+    del df_log, df_pow
 
     return df
