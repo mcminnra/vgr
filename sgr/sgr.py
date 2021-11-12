@@ -28,21 +28,23 @@ if __name__ == '__main__':
     # Get args
     args = parser.parse_args()
 
-    # # ==============================================================================================
-    # # Get Data
-    # # ==============================================================================================
-    # # Get reviewed games
-    # print(f'Reviews Input Path: {args.reviews_filepath}')
-    # df = pd.read_excel(args.reviews_filepath)
+    # ==============================================================================================
+    # Get Data
+    # ==============================================================================================
+    print('\n=== Getting Data ===')
+    # Get reviewed games
+    print(f'Reviews Input Path: {args.reviews_filepath}')
+    df = pd.read_excel(args.reviews_filepath)
 
-    # # Create data by getting library and wishlist games and enriching input
-    # df = get_data(df)
-    # df.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/raw.csv')  # cache
-    # del df
+    # Create data by getting library and wishlist games and enriching input
+    df = get_data(df)
+    df.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/raw.csv')  # cache
+    del df
 
     # ==============================================================================================
     # Data processing and Feature Engineering
     # ==============================================================================================
+    print('\n=== Processing Data ===')
     df = pd.read_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/raw.csv')
     df = process_data(df)
     df.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/processed.csv')  # cache
@@ -51,6 +53,7 @@ if __name__ == '__main__':
     # ==============================================================================================
     # Model Training
     # ==============================================================================================
+    print('\n=== Model ===')
     df = pd.read_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/processed.csv').set_index('Steam AppID')
 
     rating_idx = df['Rating'].notnull()

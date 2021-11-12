@@ -117,10 +117,18 @@ def get_is_dlc_from_html(steam_store_tree):
     """
     Gets dlc flag from Steam Store page
     """
-    # game_area_dlc_bubble
-
     for item in steam_store_tree.xpath( "//div" ):
         if "game_area_dlc_bubble" in iter(item.classes):
+            return True
+    
+    return False
+
+def get_is_soundtrack_from_html(steam_store_tree):
+    """
+    Gets soundtrack flag from Steam Store page
+    """
+    for item in steam_store_tree.xpath( "//div" ):
+        if "game_area_soundtrack_bubble" in iter(item.classes):
             return True
     
     return False
@@ -149,6 +157,7 @@ def get_store_data(appid):
         data['long_desc'] = get_long_desc_from_html(tree)
         data['tags'] = get_tags_from_html(tree)
         data['is_dlc'] = get_is_dlc_from_html(tree)
+        data['is_soundtrack'] = get_is_soundtrack_from_html(tree)
     except Exception as e:
         print(f'Failed pulling store data for {appid} - Invalid AppID or AppID is unlisted from store - Does https://store.steampowered.com/app/{appid} or https://steamcommunity.com/app/{appid} exist?')
 

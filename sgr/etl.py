@@ -14,7 +14,7 @@ def get_data(df):
     df = df[df['Steam AppID'].notnull()]
     df = df.astype({'Steam AppID': int})
     df = df[['Steam AppID', 'Rating']]
-    print(f'Number of Reviewed Steam AppIDs: {df.shape[0]} (out of {total_games})')
+    print(f'Number of AppIDs Found in Review File: {df.shape[0]} (out of {total_games})')
 
     # Get library appids
     appids_library = get_library_appids()
@@ -55,6 +55,12 @@ def get_data(df):
     df = df[df['is_dlc'] == False]
     after = df.shape[0]
     print(f'Removed {before-after} AppIDs - DLC')
+
+    # Soundtrack Check
+    before = df.shape[0]
+    df = df[df['is_soundtrack'] == False]
+    after = df.shape[0]
+    print(f'Removed {before-after} AppIDs - Soundtrack')
 
     # Summary
     print(f'Total AppIDs in dataset: {df.shape[0]}')
