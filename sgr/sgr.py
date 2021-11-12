@@ -22,11 +22,11 @@ parser.add_argument(
 )
 
 if __name__ == '__main__':
-    # # get print console
-    # console = Console()
+    # get print console
+    console = Console()
 
-    # # Get args
-    # args = parser.parse_args()
+    # Get args
+    args = parser.parse_args()
 
     # # ==============================================================================================
     # # Get Data
@@ -40,13 +40,13 @@ if __name__ == '__main__':
     # df.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/raw.csv')  # cache
     # del df
 
-    # # ==============================================================================================
-    # # Data processing and Feature Engineering
-    # # ==============================================================================================
-    # df = pd.read_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/raw.csv')
-    # df = process_data(df)
-    # df.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/processed.csv')  # cache
-    # del df
+    # ==============================================================================================
+    # Data processing and Feature Engineering
+    # ==============================================================================================
+    df = pd.read_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/raw.csv')
+    df = process_data(df)
+    df.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/processed.csv')  # cache
+    del df
 
     # ==============================================================================================
     # Model Training
@@ -57,7 +57,7 @@ if __name__ == '__main__':
     df_train = df[rating_idx]
     df_pred = df[-rating_idx]
 
-    feature_cols = [col for col in df.columns if '_norm' in col or 'tags_' in col or 'emb_' in col]
+    feature_cols = [col for col in df.columns if 'feat_' in col]
     X_train = df_train[feature_cols]
     X_pred = df_pred[feature_cols]
     y_train = df_train['Rating']
@@ -80,9 +80,9 @@ if __name__ == '__main__':
     y_pred = model.predict(X_pred)
 
     df_pred = pd.DataFrame({
-        'AppID': X_pred.index.values,
+        'Steam AppID': X_pred.index.values,
         'Pred Score': y_pred
-    }).sort_values('Pred Score', ascending=False).set_index('AppID')
+    }).sort_values('Pred Score', ascending=False).set_index('Steam AppID')
     df_pred = df_pred.join(df[['name']], how='left')
     df_pred = df_pred[['name', 'Pred Score']]
 
@@ -99,13 +99,13 @@ if __name__ == '__main__':
     print('\n== Feature Importances ==')
     feat_imp = [(col, imp) for col, imp in zip(X_train.columns, model.feature_importances_)]
 
-    tag_imp = np.mean([imp for col, imp in feat_imp if 'tags_' in col])
-    short_desc_imp = np.mean([imp for col, imp in feat_imp if 'short_desc_' in col])
-    long_desc_imp = np.mean([imp for col, imp in feat_imp if 'long_desc_' in col])
-    recent_percent_imp = np.mean([imp for col, imp in feat_imp if 'recent_percent_' in col])
-    recent_count_imp = np.mean([imp for col, imp in feat_imp if 'recent_count_' in col])
-    all_percent_imp = np.mean([imp for col, imp in feat_imp if 'all_percent_' in col])
-    all_count_imp = np.mean([imp for col, imp in feat_imp if 'all_count_' in col])
+    tag_imp = np.mean([imp for col, imp in feat_imp if 'tags' in col])
+    short_desc_imp = np.mean([imp for col, imp in feat_imp if 'short_desc' in col])
+    long_desc_imp = np.mean([imp for col, imp in feat_imp if 'long_desc' in col])
+    recent_percent_imp = np.mean([imp for col, imp in feat_imp if 'recent_percent' in col])
+    recent_count_imp = np.mean([imp for col, imp in feat_imp if 'recent_count' in col])
+    all_percent_imp = np.mean([imp for col, imp in feat_imp if 'all_percent' in col])
+    all_count_imp = np.mean([imp for col, imp in feat_imp if 'all_count' in col])
 
     print(f'Tag Avg. Importance: {tag_imp:0.6f}')
     print(f'Short Desc. Avg. Importance: {short_desc_imp:0.6f}')
@@ -116,7 +116,7 @@ if __name__ == '__main__':
     print(f'All Percent Avg. Importance: {all_percent_imp:0.6f}')
 
     print('\nTop 10 Tags')
-    tags = [(name, imp) for name, imp in feat_imp if 'tags_' in name]
+    tags = [(name, imp) for name, imp in feat_imp if 'tags' in name]
     for name, imp in sorted(tags, key=lambda x: x[1], reverse=True)[:10]:
         print(name, imp)
 
