@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 import json
 import time
 import xml.etree.ElementTree as ET
@@ -105,9 +105,9 @@ def get_short_desc_from_html(steam_store_tree):
 
     short_desc = ""
     if desc_element:
-        short_desc = str(desc_element[0]).strip()
+        short_desc = str(desc_element[0])
         
-    return short_desc
+    return short_desc.strip().replace("\r", "").replace("\n", "")
 
 
 def get_long_desc_from_html(steam_store_tree):
@@ -115,9 +115,9 @@ def get_long_desc_from_html(steam_store_tree):
 
     long_desc = ""
     if desc_element:
-        long_desc = ''.join(desc_element).strip()
+        long_desc = str(''.join(desc_element))
         
-    return long_desc
+    return long_desc.strip().replace("\r", "").replace("\n", "")
 
 
 def get_tags_from_html(steam_store_tree):
@@ -166,15 +166,17 @@ def get_store_data(appid):
 
     # Init data
     data = {
+        'steam_appid': appid,
+        '_date_pulled': date.today(),
         'name': None,
         'release_date': None,
-        'recent_percent': None,
         'recent_count': None,
-        'all_percent': None,
+        'recent_percent': None,
         'all_count': None,
+        'all_percent': None,
         'short_desc': None,
-        'long_desc': None,
-        'tags': None,
+        'long_desc': "",
+        'tags': [],
         'is_dlc': None,
         'is_soundtrack': None,
         'is_video': None,

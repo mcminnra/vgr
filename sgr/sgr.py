@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from datetime import date
-
 import pathlib
 import pickle
 
@@ -38,32 +37,25 @@ if __name__ == '__main__':
 
     # Create data by getting library and wishlist games and enriching input
     df = get_data(df, config['steam_url_name'], config['steam_id'])
-    df.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + f'/data/raw_{today.year}_{today.month}_{today.day}.csv')  # cache
-    del df
 
     # ==============================================================================================
     # Data processing and Feature Engineering
     # ==============================================================================================
     print('\n=== Processing Data ===')
-    df = pd.read_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + f'/data/raw_{today.year}_{today.month}_{today.day}.csv')
     df = process_data(df)
-    df.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + f'/data/processed_{today.year}_{today.month}_{today.day}.csv')  # cache
-    del df
 
     # ==============================================================================================
     # Model Training
     # ==============================================================================================
     print('\n=== Model ===')
-    df = pd.read_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + f'/data/processed_{today.year}_{today.month}_{today.day}.csv').set_index('Steam AppID')
-
-    rating_idx = df['Rating'].notnull()
+    rating_idx = df['rating'].notnull()
     df_train = df[rating_idx]
     df_pred = df[-rating_idx]
 
     feature_cols = [col for col in df.columns if 'feat_' in col]
     X_train = df_train[feature_cols]
     X_pred = df_pred[feature_cols]
-    y_train = df_train['Rating']
+    y_train = df_train['rating']
 
     # Fit Model
     model = XGBRegressor(
@@ -83,21 +75,21 @@ if __name__ == '__main__':
     y_pred = model.predict(X_pred)
 
     df_pred = pd.DataFrame({
-        'Steam AppID': X_pred.index.values,
-        'Pred Score': y_pred
-    }).sort_values('Pred Score', ascending=False).set_index('Steam AppID')
+        'steam_appid': X_pred.index.values,
+        'pred_score': y_pred
+    }).sort_values('pred_score', ascending=False).set_index('steam_appid')
     df_pred = df_pred.join(df[['name']], how='left')
-    df_pred = df_pred[['name', 'Pred Score']]
+    df_pred = df_pred[['name', 'pred_score']]
 
     # Top 10
     print('\n== Top 10 ==')
     for index, row in df_pred.head(10).iterrows():
-        print(f'{row["name"]}: {row["Pred Score"]:0.2f}')
+        print(f'{row["name"]}: {row["pred_score"]:0.2f}')
 
     # Bottom 10
     print('\n== Bottom 10 ==')
     for index, row in df_pred.tail(10).iterrows():
-        print(f'{row["name"]}: {row["Pred Score"]:0.2f}')
+        print(f'{row["name"]}: {row["pred_score"]:0.2f}')
 
     print('\n== Feature Importances ==')
     feat_imp = [(col, imp) for col, imp in zip(X_train.columns, model.feature_importances_)]
@@ -130,4 +122,4 @@ if __name__ == '__main__':
 
     # Output
     df_pred.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + f'/data/scores_{today.year}_{today.month}_{today.day}.csv')
-    pickle.dump(model, open(str(pathlib.Path(__file__).parent.parent.absolute()) + f'/data/model.pkl_{today.year}_{today.month}_{today.day}', 'wb'))
+    pickle.dump(model, open(str(pathlib.Path(__file__).parent.parent.absolute()) + f'/data/model_{today.year}_{today.month}_{today.day}.pkl', 'wb'))
