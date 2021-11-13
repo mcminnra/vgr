@@ -34,18 +34,18 @@ if __name__ == '__main__':
     # Get args
     args = parser.parse_args()
 
-    # # ==============================================================================================
-    # # Get Data
-    # # ==============================================================================================
-    # print('\n=== Getting Data ===')
-    # # Get reviewed games
-    # print(f'Reviews Input Path: {args.reviews_filepath}')
-    # df = pd.read_excel(args.reviews_filepath)
+    # ==============================================================================================
+    # Get Data
+    # ==============================================================================================
+    print('\n=== Getting Data ===')
+    # Get reviewed games
+    print(f'Reviews Input Path: {args.reviews_filepath}')
+    df = pd.read_excel(args.reviews_filepath)
 
-    # # Create data by getting library and wishlist games and enriching input
-    # df = get_data(df)
-    # df.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + f'/data/raw_{today.year}_{today.month}_{today.day}.csv')  # cache
-    # del df
+    # Create data by getting library and wishlist games and enriching input
+    df = get_data(df)
+    df.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + f'/data/raw_{today.year}_{today.month}_{today.day}.csv')  # cache
+    del df
 
     # ==============================================================================================
     # Data processing and Feature Engineering
