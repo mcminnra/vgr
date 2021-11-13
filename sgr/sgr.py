@@ -115,13 +115,18 @@ if __name__ == '__main__':
     all_percent_imp = np.mean([imp for col, imp in feat_imp if 'all_percent' in col])
     all_count_imp = np.mean([imp for col, imp in feat_imp if 'all_count' in col])
 
-    print(f'Tag Avg. Importance: {tag_imp:0.6f}')
-    print(f'Short Desc. Avg. Importance: {short_desc_imp:0.6f}')
-    print(f'Long Desc Avg. Importance: {long_desc_imp:0.6f}')
-    print(f'Recent Count Avg. Importance: {recent_count_imp:0.6f}')
-    print(f'Recent Percent Avg. Importance: {recent_percent_imp:0.6f}')
-    print(f'All Count Avg. Importance: {all_count_imp:0.6f}')
-    print(f'All Percent Avg. Importance: {all_percent_imp:0.6f}')
+    summary_imp = [
+        ('Tag Avg. Importance', tag_imp),
+        ('Short Desc. Avg. Importance', short_desc_imp),
+        ('Long Desc Avg. Importance', long_desc_imp),
+        ('Recent Count Avg. Importance', recent_count_imp),
+        ('Recent Percent Avg. Importance', recent_percent_imp),
+        ('All Count Avg. Importance', all_count_imp),
+        ('All Percent Avg. Importance', all_percent_imp)
+    ]
+    summary_imp = sorted(summary_imp, key=lambda x: x[1], reverse=True)
+    for desc, imp in summary_imp:
+        print(f'{desc}: {imp:0.6f}')
 
     print('\nTop 10 Tags')
     tags = [(name, imp) for name, imp in feat_imp if 'tags' in name]
