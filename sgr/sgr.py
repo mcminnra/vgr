@@ -15,6 +15,9 @@ from xgboost import XGBRegressor
 
 from etl import get_data, process_data
 
+# Globals
+today = date.today()
+
 # CLI
 parser = argparse.ArgumentParser(description='Steam Games Recommender')
 parser.add_argument(
@@ -23,11 +26,7 @@ parser.add_argument(
     help='Reviews input filepath that has a "Steam AppID" and "Rating" columns.'
 )
 
-
-
 if __name__ == '__main__':
-    today = date.today()
-
     # get print console
     console = Console()
 

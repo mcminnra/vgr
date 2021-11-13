@@ -1,7 +1,9 @@
 from ast import literal_eval
+from datetime import date
 
 import numpy as np
 import pandas as pd
+from rich import print
 from rich.progress import track
 from sentence_transformers import SentenceTransformer
 
@@ -67,6 +69,13 @@ def get_data(df):
     df = df[df['is_video'] == False]
     after = df.shape[0]
     print(f'Removed {before-after} AppIDs - Video')
+
+    # Not Released Check
+    before = df.shape[0]
+    today = date.today()
+    df = df[(df['release_date'] <= today) & (df['release_date'].notnull())]
+    after = df.shape[0]
+    print(f'Removed {before-after} AppIDs - Not Released')
 
     # Summary
     print(f'Total AppIDs in dataset: {df.shape[0]}')
