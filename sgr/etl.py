@@ -9,7 +9,7 @@ from rich import print
 from rich.progress import track
 from sentence_transformers import SentenceTransformer
 
-from steamapi import get_library_appids, get_wishlist_appids, get_store_data
+from steamapi import get_library_appids, get_wishlist_appids, get_popular_new_releases_appids, get_store_data
 
 # Globals
 base_path = str(pathlib.Path(__file__).parent.parent.absolute())
@@ -36,9 +36,16 @@ def get_data(df, steam_url_name, steam_id):
     df_wishlist = df_wishlist.astype({'Steam AppID': int})
     print(f'Number of AppIDs Found in Steam Wishlist: {df_wishlist.shape[0]}')
 
+    # Get popular new releases appids
+    appids_pnr = get_popular_new_releases_appids()
+    df_pnr = pd.DataFrame({'Steam AppID': appids_pnr, 'Rating':None})
+    df_pnr = df_pnr.astype({'Steam AppID': int})
+    print(f'Number of AppIDs Found in Steam "Popular New Releases": {df_pnr.shape[0]}')
+
     # Join appids
     df = df.merge(df_library, on='Steam AppID', how='outer', suffixes=('', '_y'))[['Steam AppID', 'Rating']]
     df = df.merge(df_wishlist, on='Steam AppID', how='outer', suffixes=('', '_y'))[['Steam AppID', 'Rating']]
+    df = df.merge(df_pnr, on='Steam AppID', how='outer', suffixes=('', '_y'))[['Steam AppID', 'Rating']]
     df = df.rename(columns={"Steam AppID": "steam_appid", "Rating": "rating"})
     df = df.set_index('steam_appid')
 
@@ -152,6 +159,7 @@ def process_data(df):
     df['long_desc'] = df['short_desc'].fillna('')
 
     # Explode Tags
+    df['tags'] = df['tags'].apply(lambda row: [item.replace(' ', '_').replace('-', '_').replace('\'', '').replace('.', 'point') for item in row])
     df_tags = pd.get_dummies(df[['tags']].explode('tags')).sum(level=0)
     df_tags = df_tags.add_prefix('feat_')
     df = df.merge(df_tags, how='inner', right_index=True, left_index=True, suffixes=(None, None))

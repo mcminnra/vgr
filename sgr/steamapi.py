@@ -50,6 +50,18 @@ def get_wishlist_appids(steam_id):
 
     return appids
 
+def get_popular_new_releases_appids():
+        """
+        Gets appids from Windows "Popular New Releases" page
+        """
+        r = requests.get('https://store.steampowered.com/search/?filter=popularnew&sort_by=Released_DESC&os=win')
+        time.sleep(WAIT_FOR_RESP_DOWNLOAD)
+        tree = html.fromstring(r.text)
+
+        appids = [int(item.split(',')[0]) for item in tree.xpath('//a/@data-ds-appid')]
+
+        return appids
+
 
 def get_steam_store_html(appid):
     """
