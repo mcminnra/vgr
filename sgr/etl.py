@@ -98,7 +98,7 @@ def get_data(df, steam_url_name, steam_id):
 
     # resolve types
     df_cache = df_cache.convert_dtypes()
-    df_cache['tags'] = df_cache['tags'].apply(lambda x: literal_eval(x) if x else x)
+    df_cache['tags'] = df_cache['tags'].apply(lambda x: literal_eval(x) if x and isinstance(x, str) else x)
 
     # write cache
     df_cache.sort_values(by='name').to_csv(cache_path)
