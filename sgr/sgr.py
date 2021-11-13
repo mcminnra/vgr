@@ -37,7 +37,7 @@ if __name__ == '__main__':
     df = pd.read_excel(config['reviews_filepath'])
 
     # Create data by getting library and wishlist games and enriching input
-    df = get_data(df)
+    df = get_data(df, config['steam_url_name'], config['steam_id'])
     df.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + f'/data/raw_{today.year}_{today.month}_{today.day}.csv')  # cache
     del df
 

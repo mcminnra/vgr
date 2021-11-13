@@ -10,12 +10,12 @@ from rich import print
 WAIT_FOR_RESP_DOWNLOAD = 0.10
 
 
-def get_library_appids():
+def get_library_appids(steam_url_name):
     """
     Gets appids from steam library
     """
 
-    r = requests.get('https://steamcommunity.com/id/ryder___/games?tab=all&xml=1')
+    r = requests.get(f'https://steamcommunity.com/id/{steam_url_name}/games?tab=all&xml=1')
     time.sleep(WAIT_FOR_RESP_DOWNLOAD)
     root = ET.fromstring(r.text)[2]
   
@@ -26,7 +26,7 @@ def get_library_appids():
     return appids
 
 
-def get_wishlist_appids():
+def get_wishlist_appids(steam_id):
     """
     Gets appids from steam wishlist
     """
@@ -35,7 +35,7 @@ def get_wishlist_appids():
     appids = []
     page_counter = 0
     while page_counter >= 0:
-        r = requests.get(f'https://store.steampowered.com/wishlist/profiles/76561198053753111/wishlistdata/?p={page_counter}')
+        r = requests.get(f'https://store.steampowered.com/wishlist/profiles/{steam_id}/wishlistdata/?p={page_counter}')
         time.sleep(WAIT_FOR_RESP_DOWNLOAD)
     
         wishlist = json.loads(r.text)

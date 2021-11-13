@@ -9,7 +9,7 @@ from sentence_transformers import SentenceTransformer
 
 from steamapi import get_library_appids, get_wishlist_appids, get_store_data
 
-def get_data(df):
+def get_data(df, steam_url_name, steam_id):
     total_games = df.shape[0]
 
     # Process scores df
@@ -19,13 +19,13 @@ def get_data(df):
     print(f'Number of AppIDs Found in Review File: {df.shape[0]} (out of {total_games})')
 
     # Get library appids
-    appids_library = get_library_appids()
+    appids_library = get_library_appids(steam_url_name)
     df_library = pd.DataFrame({'Steam AppID': appids_library, 'Rating':None})
     df_library = df_library.astype({'Steam AppID': int})
     print(f'Number of AppIDs Found in Steam Library: {df_library.shape[0]}')
 
     # Get wishlist appids
-    appids_wishlist = get_wishlist_appids()
+    appids_wishlist = get_wishlist_appids(steam_id)
     df_wishlist = pd.DataFrame({'Steam AppID': appids_wishlist, 'Rating':None})
     df_wishlist = df_wishlist.astype({'Steam AppID': int})
     print(f'Number of AppIDs Found in Steam Wishlist: {df_wishlist.shape[0]}')
