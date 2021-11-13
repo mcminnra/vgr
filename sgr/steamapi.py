@@ -50,11 +50,11 @@ def get_wishlist_appids(steam_id):
 
     return appids
 
-def get_popular_new_releases_appids():
+def get_steam_search_appids(steam_url):
         """
-        Gets appids from Windows "Popular New Releases" page
+        Gets appids from a particular Steam Search Page
         """
-        r = requests.get('https://store.steampowered.com/search/?filter=popularnew&sort_by=Released_DESC&os=win')
+        r = requests.get(steam_url)
         time.sleep(WAIT_FOR_RESP_DOWNLOAD)
         tree = html.fromstring(r.text)
 
@@ -82,7 +82,7 @@ def get_release_date_from_html(steam_store_tree):
 
     try:
         date_str = str(date_list[0]).strip()
-        release_date = datetime.strptime(date_str, '%b %d, %Y').date()
+        release_date = str(datetime.strptime(date_str, '%b %d, %Y').date())
     except Exception as e:
         release_date = None
 
@@ -136,7 +136,13 @@ def get_tags_from_html(steam_store_tree):
     """
     Gets the app tags from a Steam Store Page
     """
-    tags = [tag.strip() for tag in steam_store_tree.xpath('//a[@class="app_tag"]/text()')]
+    tags_raw = steam_store_tree.xpath('//a[@class="app_tag"]/text()')
+
+    if tags_raw:
+        tags = [tag.strip() for tag in tags_raw]
+    else:
+        tags = list()
+
     return tags
 
 def get_is_dlc_from_html(steam_store_tree):
@@ -179,7 +185,7 @@ def get_store_data(appid):
     # Init data
     data = {
         'steam_appid': appid,
-        '_date_pulled': date.today(),
+        '_date_pulled': str(date.today()),
         'name': None,
         'release_date': None,
         'recent_count': None,

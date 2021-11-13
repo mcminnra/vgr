@@ -59,8 +59,8 @@ if __name__ == '__main__':
 
     # Fit Model
     model = XGBRegressor(
-        max_depth=4,  # 32
-        n_estimators=354,  # 250
+        max_depth=32,  # 32
+        n_estimators=250,  # 250
         objective='reg:squarederror',
         random_state=42,
         verbosity=0,
@@ -77,9 +77,9 @@ if __name__ == '__main__':
     df_pred = pd.DataFrame({
         'steam_appid': X_pred.index.values,
         'pred_score': y_pred
-    }).sort_values('pred_score', ascending=False).set_index('steam_appid')
+    }).set_index('steam_appid')
     df_pred = df_pred.join(df[['name']], how='left')
-    df_pred = df_pred[['name', 'pred_score']]
+    df_pred = df_pred[['name', 'pred_score']].sort_values('pred_score', ascending=False)
 
     # Top 10
     print('\n== Top 10 ==')
@@ -115,7 +115,7 @@ if __name__ == '__main__':
     for desc, imp in summary_imp:
         print(f'{desc}: {imp:0.6f}')
 
-    print('\nTop 10 Tags')
+    print('\n== Top 10 Tags ==')
     tags = [(name, imp) for name, imp in feat_imp if 'tags' in name]
     for name, imp in sorted(tags, key=lambda x: x[1], reverse=True)[:10]:
         print(name, imp)

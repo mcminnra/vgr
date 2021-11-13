@@ -9,7 +9,7 @@ from rich import print
 from rich.progress import track
 from sentence_transformers import SentenceTransformer
 
-from steamapi import get_library_appids, get_wishlist_appids, get_popular_new_releases_appids, get_store_data
+from steamapi import get_library_appids, get_wishlist_appids, get_steam_search_appids, get_store_data
 
 # Globals
 base_path = str(pathlib.Path(__file__).parent.parent.absolute())
@@ -37,15 +37,22 @@ def get_data(df, steam_url_name, steam_id):
     print(f'Number of AppIDs Found in Steam Wishlist: {df_wishlist.shape[0]}')
 
     # Get popular new releases appids
-    appids_pnr = get_popular_new_releases_appids()
+    appids_pnr = get_steam_search_appids('https://store.steampowered.com/search/?filter=popularnew&sort_by=Released_DESC&os=win')
     df_pnr = pd.DataFrame({'Steam AppID': appids_pnr, 'Rating':None})
     df_pnr = df_pnr.astype({'Steam AppID': int})
     print(f'Number of AppIDs Found in Steam "Popular New Releases": {df_pnr.shape[0]}')
+
+    # Get top sellers
+    appids_ts = get_steam_search_appids('https://store.steampowered.com/search/?filter=topsellers&os=win')
+    df_ts = pd.DataFrame({'Steam AppID': appids_ts, 'Rating':None})
+    df_ts = df_ts.astype({'Steam AppID': int})
+    print(f'Number of AppIDs Found in Steam "Top Sellers": {df_ts.shape[0]}')
 
     # Join appids
     df = df.merge(df_library, on='Steam AppID', how='outer', suffixes=('', '_y'))[['Steam AppID', 'Rating']]
     df = df.merge(df_wishlist, on='Steam AppID', how='outer', suffixes=('', '_y'))[['Steam AppID', 'Rating']]
     df = df.merge(df_pnr, on='Steam AppID', how='outer', suffixes=('', '_y'))[['Steam AppID', 'Rating']]
+    df = df.merge(df_ts, on='Steam AppID', how='outer', suffixes=('', '_y'))[['Steam AppID', 'Rating']]
     df = df.rename(columns={"Steam AppID": "steam_appid", "Rating": "rating"})
     df = df.set_index('steam_appid')
 
@@ -91,10 +98,7 @@ def get_data(df, steam_url_name, steam_id):
 
     # resolve types
     df_cache = df_cache.convert_dtypes()
-    try:
-        df_cache['tags'] = df_cache['tags'].apply(literal_eval)
-    except Exception:
-        pass  # This throws an error if tags already an object - figure out later
+    df_cache['tags'] = df_cache['tags'].apply(lambda x: literal_eval(x) if x else x)
 
     # write cache
     df_cache.sort_values(by='name').to_csv(cache_path)
@@ -167,37 +171,20 @@ def process_data(df):
     ### Embeddings
     model = SentenceTransformer('all-mpnet-base-v2')
     model.max_seq_length = 300
-    # Process short_desc
-    # Get short_desc embeddings
-    df['feat_emb_short_desc'] = None
-    for idx, sentence in zip(df.index, df['short_desc'].values):
-        sentence_emb = model.encode(sentence)
-        df.at[idx, 'feat_emb_short_desc'] = sentence_emb
 
-    # Explode short_desc_emb to multiple cols
+    # Create embedding and explode short_desc embedding to multiple cols
+    df['feat_emb_short_desc'] = df['short_desc'].apply(lambda x: model.encode(x))
     emb_len = df['feat_emb_short_desc'].values[0].shape[0]
     emb_cols = [f'feat_emb_short_desc_{i}' for i in range(0, emb_len)]
     df[emb_cols] = pd.DataFrame(df['feat_emb_short_desc'].tolist(), index=df.index)
-    df = df.drop(['feat_emb_short_desc'], axis=1)
+    df = df.drop(['feat_emb_short_desc'], axis=1).copy()
 
-    # workaround - defragment dataframe
-    df = df.copy()
-
-    # Process long_desc
-    # Get long_desc embeddings
-    df['feat_emb_long_desc'] = None
-    for idx, sentence in zip(df.index, df['long_desc'].values):
-        sentence_emb = model.encode(sentence)
-        df.at[idx, 'feat_emb_long_desc'] = sentence_emb
-
-    # Explode short_desc_emb to multiple cols
+    # Create embedding and explode long_desc embedding to multiple cols
+    df['feat_emb_long_desc'] = df['long_desc'].apply(lambda x: model.encode(x))
     emb_len = df['feat_emb_long_desc'].values[0].shape[0]
     emb_cols = [f'feat_emb_long_desc_{i}' for i in range(0, emb_len)]
     df[emb_cols] = pd.DataFrame(df['feat_emb_long_desc'].tolist(), index=df.index)
-    df = df.drop(['feat_emb_long_desc'], axis=1)
-
-    # workaround - defragment dataframe
-    df = df.copy()
+    df = df.drop(['feat_emb_long_desc'], axis=1).copy()
 
     ### Feature transforms
     feature_cols = [col for col in df.columns if 'feat_' in col]
