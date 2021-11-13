@@ -1,18 +1,19 @@
 name: sgr
 channels:
-  - conda-forge
   - defaults
+  - conda-forge
 dependencies:
   - python>=3.8
   - jupyter
   - lxml
   - numpy
+  - openpyxl
   - pandas
+  - pyyaml
   - requests
   - rich
   - scikit-learn
   - shap
-  - openpyxl
   - xgboost
   - pip
   - pip:

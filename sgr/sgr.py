@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import argparse
 from datetime import date
 
 import pathlib
@@ -12,34 +11,30 @@ from rich import print
 from rich.console import Console
 from sklearn.model_selection import GridSearchCV, cross_val_score
 from xgboost import XGBRegressor
+import yaml
 
 from etl import get_data, process_data
 
 # Globals
 today = date.today()
+console = Console()
 
-# CLI
-parser = argparse.ArgumentParser(description='Steam Games Recommender')
-parser.add_argument(
-    'reviews_filepath',
-    type=str,
-    help='Reviews input filepath that has a "Steam AppID" and "Rating" columns.'
-)
+# Load config
+with open(str(pathlib.Path(__file__).parent.parent.absolute()) + '/config.yml', "r") as stream:
+    try:
+        config = yaml.safe_load(stream)
+    except yaml.YAMLError as exc:
+        print(exc)
+
 
 if __name__ == '__main__':
-    # get print console
-    console = Console()
-
-    # Get args
-    args = parser.parse_args()
-
     # ==============================================================================================
     # Get Data
     # ==============================================================================================
     print('\n=== Getting Data ===')
     # Get reviewed games
-    print(f'Reviews Input Path: {args.reviews_filepath}')
-    df = pd.read_excel(args.reviews_filepath)
+    print(f'Reviews Input Path: {config["reviews_filepath"]}')
+    df = pd.read_excel(config['reviews_filepath'])
 
     # Create data by getting library and wishlist games and enriching input
     df = get_data(df)
