@@ -49,11 +49,8 @@ def get_data(df, steam_url_name, steam_id):
     print(f'Number of AppIDs Found in Steam "Top Sellers": {df_ts.shape[0]}')
 
     # Join appids
-    df = df.merge(df_library, on='Steam AppID', how='outer', suffixes=('', '_y'))[['Steam AppID', 'Rating']]
-    df = df.merge(df_wishlist, on='Steam AppID', how='outer', suffixes=('', '_y'))[['Steam AppID', 'Rating']]
-    df = df.merge(df_pnr, on='Steam AppID', how='outer', suffixes=('', '_y'))[['Steam AppID', 'Rating']]
-    df = df.merge(df_ts, on='Steam AppID', how='outer', suffixes=('', '_y'))[['Steam AppID', 'Rating']]
-    df = df.rename(columns={"Steam AppID": "steam_appid", "Rating": "rating"})
+    df = df.append([df_library, df_wishlist, df_pnr, df_ts])
+    df = df.rename(columns={"Steam AppID": "steam_appid", "Rating": "rating"}).drop_duplicates(subset=['steam_appid'], keep='first')
     df = df.set_index('steam_appid')
 
     # Load cache
@@ -83,18 +80,14 @@ def get_data(df, steam_url_name, steam_id):
     for appid in track(df.index.values, description='Getting Steam Store Data'):
         # Not in cache
         if appid not in df_cache.index:
-            print(f'{appid} not in cache. Pulling...')
             dict_appid = get_store_data(appid)
             s_appid = pd.Series(dict_appid).rename(dict_appid['steam_appid']).drop(labels=['steam_appid'])
             df_cache = df_cache.append(s_appid)
         # Outdated cache
         elif date.fromisoformat(df_cache.at[appid,'_date_pulled']) < (date.today() - timedelta(days=14)):
-            print(f'{appid} cache outdated. Pulling...')
             dict_appid = get_store_data(appid)
             s_appid = pd.Series(dict_appid).rename(dict_appid['steam_appid']).drop(labels=['steam_appid'])
             df_cache = df_cache.drop([appid]).append(s_appid)
-        else:
-            print(f'{appid} already in cache. Continuing...')
 
     # resolve types
     df_cache = df_cache.convert_dtypes()
@@ -106,6 +99,8 @@ def get_data(df, steam_url_name, steam_id):
     # Join with ratings    
     df = df_cache.merge(df, how='left', right_index=True, left_index=True, suffixes=(None, None))
     del df_cache
+
+    print(f'\nTotal AppIDs in cache: {df.shape[0]}')
 
     # Check for valid data points
     # No Names
@@ -139,8 +134,8 @@ def get_data(df, steam_url_name, steam_id):
     print(f'Removed {before-after} AppIDs - Not Released')
 
     # Summary
-    print(f'Total AppIDs in dataset: {df.shape[0]}')
-    print(f'Num of AppIDs reviewed: {df[df["rating"].notnull()].shape[0]}')
+    print(f'Total AppIDs in filtered dataset: {df.shape[0]}')
+    print(f'Total AppIDs reviewed: {df[df["rating"].notnull()].shape[0]}')
 
     return df
 
@@ -151,18 +146,11 @@ def process_data(df):
     Note: prefix "feat_" is columns used for training
     """
 
-    # Normalize ratings cols
-    df['feat_norm_recent_percent']=((df['recent_percent']-df['recent_percent'].mean())/df['recent_percent'].std()).fillna(0)
-    df['feat_norm_recent_count']=((df['recent_count']-df['recent_count'].mean())/df['recent_count'].std()).fillna(0)
-    df['feat_norm_all_percent']=((df['all_percent']-df['all_percent'].mean())/df['all_percent'].std()).fillna(0)
-    df['feat_norm_all_count']=((df['all_count']-df['all_count'].mean())/df['all_count'].std()).fillna(0)
-    df = df.astype({f'{col}': float for col in df.columns if 'feat_norm_' in col})  # Convert to float because it gets changed for some reason
-
-    # Fill Null
+    ### Fill Null
     df['short_desc'] = df['short_desc'].fillna('')
     df['long_desc'] = df['short_desc'].fillna('')
 
-    # Explode Tags
+    ### Explode Tags
     df['tags'] = df['tags'].apply(lambda row: [item.replace(' ', '_').replace('-', '_').replace('\'', '').replace('.', 'point') for item in row])
     df_tags = pd.get_dummies(df[['tags']].explode('tags')).sum(level=0)
     df_tags = df_tags.add_prefix('feat_')
@@ -170,7 +158,7 @@ def process_data(df):
 
     ### Embeddings
     model = SentenceTransformer('all-mpnet-base-v2')
-    model.max_seq_length = 300
+    model.max_seq_length = 100
 
     # Create embedding and explode short_desc embedding to multiple cols
     df['feat_emb_short_desc'] = df['short_desc'].apply(lambda x: model.encode(x))
@@ -187,15 +175,15 @@ def process_data(df):
     df = df.drop(['feat_emb_long_desc'], axis=1).copy()
 
     ### Feature transforms
-    feature_cols = [col for col in df.columns if 'feat_' in col]
+    transform_cols = [col for col in df.columns if 'percent' in col or 'count' in col]
 
     # Log
-    df_log = np.log(df[feature_cols])
+    df_log = np.log(df[transform_cols])
     df_log = df_log.copy().fillna(0).add_suffix('_log')
     df_log[np.isinf(df_log)] = 0
 
     # Pow
-    df_pow = np.power(df[feature_cols], 2)
+    df_pow = np.power(df[transform_cols], 2)
     df_pow = df_pow.copy().fillna(0).add_suffix('_pow')
     df_pow[np.isinf(df_pow)] = 0
     
@@ -203,4 +191,10 @@ def process_data(df):
     df = df.merge(df_pow, how='inner', right_index=True, left_index=True)
     del df_log, df_pow
 
-    return df
+    ### Normalize
+    normalize_cols = [col for col in df.columns if 'percent' in col or 'count' in col]
+    for col in normalize_cols:
+        df[f'feat_norm_{col}']=((df[f'{col}']-df[f'{col}'].mean())/df[f'{col}'].std()).fillna(0)
+    df = df.astype({f'{col}': float for col in df.columns if 'feat_norm_' in col})  # Convert to float because it gets changed for some reason
+
+    return df.copy()

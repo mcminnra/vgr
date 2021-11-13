@@ -4,6 +4,7 @@ from datetime import date
 import pathlib
 import pickle
 
+from hyperopt import fmin, hp, tpe, Trials, STATUS_OK
 import numpy as np
 import pandas as pd
 from rich import print
@@ -52,22 +53,68 @@ if __name__ == '__main__':
     df_train = df[rating_idx]
     df_pred = df[-rating_idx]
 
+    print(f'Training Data - Rows:{df_train.shape[0]}, Cols:{df_train.shape[1]}')
+
     feature_cols = [col for col in df.columns if 'feat_' in col]
     X_train = df_train[feature_cols]
     X_pred = df_pred[feature_cols]
     y_train = df_train['rating']
 
-    # Fit Model
-    model = XGBRegressor(
-        max_depth=32,  # 32
-        n_estimators=250,  # 250
-        objective='reg:squarederror',
-        random_state=42,
-        verbosity=0,
-        n_jobs=-1)
-    model.fit(X_train, y_train)
+    # Ignore specific XGBoost error
+    import warnings
+    warnings.filterwarnings(action="ignore", message=r'.*Use subset.*of np.ndarray is not recommended')
 
-    # Get Cross Val Score
+    # Hyperparam tuning
+    def objective(params):
+        MAX_DEPTH = params['max_depth']
+        N_ESTIMATORS = params['n_estimators']
+        LAMBDA = params['reg_lambda']
+        ALPHA = params['reg_alpha']
+        
+        model = XGBRegressor(
+            max_depth=MAX_DEPTH,
+            n_estimators=N_ESTIMATORS,
+            reg_lambda=LAMBDA,
+            reg_alpha=ALPHA,
+            objective='reg:squarederror',
+            verbosity=0,
+            seed=42,
+            n_jobs=-1
+        )
+        model.fit(X_train, y_train)
+        mse = cross_val_score(model, X_train, y_train, scoring='neg_mean_squared_error', cv=5).mean()*-1
+
+        return {
+            'loss': mse,
+            'status': STATUS_OK,
+            'params': params
+        }
+
+    search_space = {
+        'max_depth': hp.randint('max_depth', 1, 100),  # Default = 6
+        'n_estimators': hp.randint('n_estimators', 1, 500),  # Default = 100
+        'reg_lambda': hp.uniform('reg_lambda', 0, 2),  # Default = 1
+        'reg_alpha': hp.uniform('reg_alpha', 0, 4),  # Default = 0
+    }
+
+    trials = Trials()  # allows us to record info from each iteration
+    best = fmin(
+        fn=objective,
+        space=search_space,
+        algo=tpe.suggest,
+        max_evals=100,
+        trials=trials
+    )
+
+    # Train Model
+    model = XGBRegressor(
+        **best,
+        objective='reg:squarederror',
+        verbosity=0,
+        seed=42,
+        n_jobs=-1
+    )
+    model.fit(X_train, y_train)
     scores = cross_val_score(model, X_train, y_train, scoring='neg_mean_squared_error', cv=5)
     print(f'Avg. MSE: {scores.mean():0.4f} (+/- {scores.std():0.4f})')
 
