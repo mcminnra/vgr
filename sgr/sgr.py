@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import argparse
+from datetime import date
+
 import pathlib
 import pickle
 
@@ -21,40 +23,44 @@ parser.add_argument(
     help='Reviews input filepath that has a "Steam AppID" and "Rating" columns.'
 )
 
+
+
 if __name__ == '__main__':
+    today = date.today()
+
     # get print console
     console = Console()
 
     # Get args
     args = parser.parse_args()
 
-    # ==============================================================================================
-    # Get Data
-    # ==============================================================================================
-    print('\n=== Getting Data ===')
-    # Get reviewed games
-    print(f'Reviews Input Path: {args.reviews_filepath}')
-    df = pd.read_excel(args.reviews_filepath)
+    # # ==============================================================================================
+    # # Get Data
+    # # ==============================================================================================
+    # print('\n=== Getting Data ===')
+    # # Get reviewed games
+    # print(f'Reviews Input Path: {args.reviews_filepath}')
+    # df = pd.read_excel(args.reviews_filepath)
 
-    # Create data by getting library and wishlist games and enriching input
-    df = get_data(df)
-    df.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/raw.csv')  # cache
-    del df
+    # # Create data by getting library and wishlist games and enriching input
+    # df = get_data(df)
+    # df.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + f'/data/raw_{today.year}_{today.month}_{today.day}.csv')  # cache
+    # del df
 
     # ==============================================================================================
     # Data processing and Feature Engineering
     # ==============================================================================================
     print('\n=== Processing Data ===')
-    df = pd.read_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/raw.csv')
+    df = pd.read_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + f'/data/raw_{today.year}_{today.month}_{today.day}.csv')
     df = process_data(df)
-    df.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/processed.csv')  # cache
+    df.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + f'/data/processed_{today.year}_{today.month}_{today.day}.csv')  # cache
     del df
 
     # ==============================================================================================
     # Model Training
     # ==============================================================================================
     print('\n=== Model ===')
-    df = pd.read_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/processed.csv').set_index('Steam AppID')
+    df = pd.read_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + f'/data/processed_{today.year}_{today.month}_{today.day}.csv').set_index('Steam AppID')
 
     rating_idx = df['Rating'].notnull()
     df_train = df[rating_idx]
@@ -124,5 +130,5 @@ if __name__ == '__main__':
         print(name, imp)
 
     # Output
-    df_pred.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/scores.csv')
-    pickle.dump(model, open(str(pathlib.Path(__file__).parent.parent.absolute()) + '/data/model.pkl', 'wb'))
+    df_pred.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + f'/data/scores_{today.year}_{today.month}_{today.day}.csv')
+    pickle.dump(model, open(str(pathlib.Path(__file__).parent.parent.absolute()) + f'/data/model.pkl_{today.year}_{today.month}_{today.day}', 'wb'))

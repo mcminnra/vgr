@@ -62,6 +62,12 @@ def get_data(df):
     after = df.shape[0]
     print(f'Removed {before-after} AppIDs - Soundtrack')
 
+    # Video Check
+    before = df.shape[0]
+    df = df[df['is_video'] == False]
+    after = df.shape[0]
+    print(f'Removed {before-after} AppIDs - Video')
+
     # Summary
     print(f'Total AppIDs in dataset: {df.shape[0]}')
     print(f'Num of AppIDs reviewed: {df[df["Rating"].notnull()].shape[0]}')
