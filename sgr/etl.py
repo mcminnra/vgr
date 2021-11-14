@@ -1,5 +1,6 @@
 from ast import literal_eval
 from datetime import date, timedelta
+import math
 import os
 import pathlib
 
@@ -150,10 +151,23 @@ def process_data(df):
     df['short_desc'] = df['short_desc'].fillna('')
     df['long_desc'] = df['short_desc'].fillna('')
 
-    ### Explode Tags
-    df['tags'] = df['tags'].apply(lambda row: [item.replace(' ', '_').replace('-', '_').replace('\'', '').replace('.', 'point') for item in row])
-    df_tags = pd.get_dummies(df[['tags']].explode('tags')).sum(level=0)
-    df_tags = df_tags.add_prefix('feat_')
+    ### Explode Tags and get position importance
+    # Filter tags
+    df['tags'] = df['tags'].apply(lambda row: [item.replace(' ', '_').replace('-', '_').replace('\'', '').replace('.', 'point').replace('&', 'and') for item in row])
+
+    # Get sert of unique tags and create cols
+    df_tags = df[['tags']]
+    UNIQUE_TAGS = sorted(list(set([tag for row in df_tags['tags'].tolist() for tag in row])), reverse=False)
+    df_tags[[f'feat_tags_{tag}' for tag in UNIQUE_TAGS]] = None
+
+    # Map tag postion importance to column
+    for row_idx, row in df_tags.iterrows():
+        tags_len = len(row['tags'])
+        for tag_idx, tag in enumerate(row['tags']):
+            df_tags.at[row_idx, f'feat_tags_{tag}'] = math.log(tags_len-tag_idx, tags_len)  # Logarithmic importance
+    df_tags = df_tags.drop(['tags'], axis=1).fillna(0)
+
+    # Join back to df
     df = df.merge(df_tags, how='inner', right_index=True, left_index=True, suffixes=(None, None))
 
     ### Embeddings
