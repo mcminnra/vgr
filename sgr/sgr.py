@@ -4,12 +4,13 @@ from datetime import date
 import pathlib
 import pickle
 
-from hyperopt import fmin, hp, tpe, Trials, STATUS_OK
+from hyperopt import fmin, hp, tpe, atpe, Trials, STATUS_OK
 import numpy as np
 import pandas as pd
 from rich import print
 from rich.console import Console
-from sklearn.model_selection import GridSearchCV, cross_val_score
+from sklearn.decomposition import PCA
+from sklearn.model_selection import cross_val_score
 from xgboost import XGBRegressor
 import yaml
 
@@ -52,7 +53,6 @@ if __name__ == '__main__':
     rating_idx = df['rating'].notnull()
     df_train = df[rating_idx]
     df_pred = df[-rating_idx]
-
     print(f'Training Data - Rows:{df_train.shape[0]}, Cols:{df_train.shape[1]}')
 
     feature_cols = [col for col in df.columns if 'feat_' in col]
@@ -66,11 +66,13 @@ if __name__ == '__main__':
 
     # Hyperparam tuning
     def objective(params):
+        N_COMPONENTS = params['n_components']
         MAX_DEPTH = params['max_depth']
         N_ESTIMATORS = params['n_estimators']
         LAMBDA = params['reg_lambda']
         ALPHA = params['reg_alpha']
         
+        pca = PCA(n_components=N_COMPONENTS, random_state=42)
         model = XGBRegressor(
             max_depth=MAX_DEPTH,
             n_estimators=N_ESTIMATORS,
@@ -81,8 +83,9 @@ if __name__ == '__main__':
             seed=42,
             n_jobs=-1
         )
-        model.fit(X_train, y_train)
-        mse = cross_val_score(model, X_train, y_train, scoring='neg_mean_squared_error', cv=5).mean()*-1
+        X_train_pca = pca.fit_transform(X_train)
+        model.fit(X_train_pca, y_train)
+        mse = cross_val_score(model, X_train_pca, y_train, scoring='neg_mean_squared_error', cv=5).mean()*-1
 
         return {
             'loss': mse,
@@ -91,6 +94,7 @@ if __name__ == '__main__':
         }
 
     search_space = {
+        'n_components': hp.randint('n_components', 1, min(*X_train.shape)),
         'max_depth': hp.randint('max_depth', 1, 100),  # Default = 6
         'n_estimators': hp.randint('n_estimators', 1, 500),  # Default = 100
         'reg_lambda': hp.uniform('reg_lambda', 0, 2),  # Default = 1
@@ -101,25 +105,31 @@ if __name__ == '__main__':
     best = fmin(
         fn=objective,
         space=search_space,
-        algo=tpe.suggest,
-        max_evals=100,
+        algo=atpe.suggest,
+        max_evals=1000,
         trials=trials
     )
+    print(best)
 
     # Train Model
+    pca = PCA(n_components=best['n_components'], random_state=42)
     model = XGBRegressor(
-        **best,
+        max_depth=best['max_depth'],
+        n_estimators=best['n_estimators'],
+        reg_lambda=best['reg_lambda'],
+        reg_alpha=best['reg_alpha'],
         objective='reg:squarederror',
         verbosity=0,
         seed=42,
         n_jobs=-1
     )
-    model.fit(X_train, y_train)
-    scores = cross_val_score(model, X_train, y_train, scoring='neg_mean_squared_error', cv=5)
-    print(f'Avg. MSE: {scores.mean():0.4f} (+/- {scores.std():0.4f})')
+    X_train_pca = pca.fit_transform(X_train)
+    model.fit(X_train_pca, y_train)
+    scores = cross_val_score(model, X_train_pca, y_train, scoring='neg_mean_squared_error', cv=5)
+    print(f'Avg. MSE: {scores.mean()*-1:0.4f} (+/- {scores.std()*-1:0.4f})')
 
     # Predict
-    y_pred = model.predict(X_pred)
+    y_pred = model.predict(pca.transform(X_pred))
 
     df_pred = pd.DataFrame({
         'steam_appid': X_pred.index.values,
@@ -138,35 +148,5 @@ if __name__ == '__main__':
     for index, row in df_pred.tail(10).iterrows():
         print(f'{row["name"]}: {row["pred_score"]:0.2f}')
 
-    print('\n== Feature Importances ==')
-    feat_imp = [(col, imp) for col, imp in zip(X_train.columns, model.feature_importances_)]
-
-    tag_imp = np.mean([imp for col, imp in feat_imp if 'tags' in col])
-    short_desc_imp = np.mean([imp for col, imp in feat_imp if 'short_desc' in col])
-    long_desc_imp = np.mean([imp for col, imp in feat_imp if 'long_desc' in col])
-    recent_percent_imp = np.mean([imp for col, imp in feat_imp if 'recent_percent' in col])
-    recent_count_imp = np.mean([imp for col, imp in feat_imp if 'recent_count' in col])
-    all_percent_imp = np.mean([imp for col, imp in feat_imp if 'all_percent' in col])
-    all_count_imp = np.mean([imp for col, imp in feat_imp if 'all_count' in col])
-
-    summary_imp = [
-        ('Tag Avg. Importance', tag_imp),
-        ('Short Desc. Avg. Importance', short_desc_imp),
-        ('Long Desc Avg. Importance', long_desc_imp),
-        ('Recent Count Avg. Importance', recent_count_imp),
-        ('Recent Percent Avg. Importance', recent_percent_imp),
-        ('All Count Avg. Importance', all_count_imp),
-        ('All Percent Avg. Importance', all_percent_imp)
-    ]
-    summary_imp = sorted(summary_imp, key=lambda x: x[1], reverse=True)
-    for desc, imp in summary_imp:
-        print(f'{desc}: {imp:0.6f}')
-
-    print('\n== Top 10 Tags ==')
-    tags = [(name, imp) for name, imp in feat_imp if 'tags' in name]
-    for name, imp in sorted(tags, key=lambda x: x[1], reverse=True)[:10]:
-        print(name, imp)
-
     # Output
     df_pred.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + f'/data/scores_{today.year}_{today.month}_{today.day}.csv')
-    pickle.dump(model, open(str(pathlib.Path(__file__).parent.parent.absolute()) + f'/data/model_{today.year}_{today.month}_{today.day}.pkl', 'wb'))
