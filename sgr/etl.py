@@ -7,13 +7,14 @@ import pathlib
 import numpy as np
 import pandas as pd
 from rich import print
-from rich.progress import track
+from tqdm import tqdm
 from sentence_transformers import SentenceTransformer
 
 from steamapi import get_library_appids, get_wishlist_appids, get_steam_search_appids, get_store_data
 
 # Globals
 base_path = str(pathlib.Path(__file__).parent.parent.absolute())
+tqdm.pandas()
 
 
 def get_data(df, steam_url_name, steam_id):
@@ -71,6 +72,7 @@ def get_data(df, steam_url_name, steam_id):
                 'all_percent',
                 'short_desc',
                 'long_desc',
+                'reviews_text',
                 'tags',
                 'is_dlc',
                 'is_soundtrack',
@@ -78,7 +80,7 @@ def get_data(df, steam_url_name, steam_id):
             ]).set_index('steam_appid')
 
     # Enrich appids
-    for appid in track(df.index.values, description='Getting Steam Store Data'):
+    for appid in tqdm(df.index.values, desc='Getting Steam Store Data'):
         # Not in cache
         if appid not in df_cache.index:
             dict_appid = get_store_data(appid)
@@ -150,6 +152,7 @@ def process_data(df):
     ### Fill Null
     df['short_desc'] = df['short_desc'].fillna('')
     df['long_desc'] = df['short_desc'].fillna('')
+    df['reviews_text'] = df['reviews_text'].fillna('')
 
     ### Explode Tags and get position importance
     # Filter tags
@@ -175,12 +178,21 @@ def process_data(df):
     model.max_seq_length = 100
 
     # Create embedding and explode desc embedding to multiple cols
+    print(f'Encoding Description Embeddings...')
     df['desc'] = df['short_desc'] + ' ' + df['long_desc']
-    df['feat_emb_desc'] = df['desc'].apply(lambda x: np.mean([model.encode(sentence) for sentence in x.split('. ')], axis=0))
+    df['feat_emb_desc'] = df['desc'].progress_apply(lambda x: np.mean([model.encode(sentence) for sentence in x.split('. ')], axis=0))
     emb_len = df['feat_emb_desc'].values[0].shape[0]
     emb_cols = [f'feat_emb_desc_{i}' for i in range(0, emb_len)]
     df[emb_cols] = pd.DataFrame(df['feat_emb_desc'].tolist(), index=df.index)
     df = df.drop(['feat_emb_desc'], axis=1).copy()
+
+    # Create embedding and explode reviews_test embedding to multiple cols
+    print(f'Encoding Review Embeddings...')
+    df['feat_emb_reviews_text'] = df['reviews_text'].progress_apply(lambda x: np.mean([model.encode(sentence) for sentence in x.split('. ')], axis=0))
+    emb_len = df['feat_emb_reviews_text'].values[0].shape[0]
+    emb_cols = [f'feat_emb_reviews_text_{i}' for i in range(0, emb_len)]
+    df[emb_cols] = pd.DataFrame(df['feat_emb_reviews_text'].tolist(), index=df.index)
+    df = df.drop(['feat_emb_reviews_text'], axis=1).copy()
 
     ### Feature transforms
     transform_cols = [col for col in df.columns if 'percent' in col or 'count' in col]

@@ -25,7 +25,6 @@ def get_library_appids(steam_url_name):
 
     return appids
 
-
 def get_wishlist_appids(steam_id):
     """
     Gets appids from steam wishlist
@@ -62,7 +61,6 @@ def get_steam_search_appids(steam_url):
 
         return appids
 
-
 def get_steam_store_html(appid):
     """
     Gets raw Steam store page HTML for a appid
@@ -71,11 +69,17 @@ def get_steam_store_html(appid):
     time.sleep(WAIT_FOR_RESP_DOWNLOAD)
     return html.fromstring(r.text)
 
+def get_steam_reviews_html(appid):
+    """
+    Gets raw Steam reviews page HTML for appid
+    """
+    r = requests.get(f'https://steamcommunity.com/app/{appid}/reviews/?browsefilter=toprated&snr=1_5_100010_')
+    time.sleep(WAIT_FOR_RESP_DOWNLOAD)
+    return html.fromstring(r.text)
 
 def get_name_from_html(steam_store_tree):
     name = str(steam_store_tree.xpath('//div[@id="appHubAppName"]/text()')[0]).strip()
     return name
-
 
 def get_release_date_from_html(steam_store_tree):
     date_list = steam_store_tree.xpath('//div[@class="date"]/text()')
@@ -87,7 +91,6 @@ def get_release_date_from_html(steam_store_tree):
         release_date = None
 
     return release_date
-
 
 def get_reviews_from_html(steam_store_tree):
     # Reviews
@@ -111,6 +114,11 @@ def get_reviews_from_html(steam_store_tree):
 
     return recent_r+all_r
 
+def get_reviews_text_from_html(steam_review_tree):
+    review_elements = steam_review_tree.xpath('//div[@class="apphub_CardTextContent"]/text()')
+    reviews = ' '.join([review.strip().replace("\r", "").replace("\n", "") for review in review_elements])
+    
+    return reviews
 
 def get_short_desc_from_html(steam_store_tree):
     desc_element = steam_store_tree.xpath('//div[@class="game_description_snippet"]/text()')
@@ -121,7 +129,6 @@ def get_short_desc_from_html(steam_store_tree):
         
     return short_desc.strip().replace("\r", "").replace("\n", "")
 
-
 def get_long_desc_from_html(steam_store_tree):
     desc_element = steam_store_tree.xpath('//div[@id="game_area_description"]/text()')
 
@@ -131,10 +138,10 @@ def get_long_desc_from_html(steam_store_tree):
         
     return long_desc.strip().replace("\r", "").replace("\n", "")
 
-
 def get_tags_from_html(steam_store_tree):
     """
     Gets the app tags from a Steam Store Page
+    # InitAppTagModal?
     """
     tags_raw = steam_store_tree.xpath('//a[@class="app_tag"]/text()')
 
@@ -175,12 +182,12 @@ def get_is_video_from_html(steam_store_tree):
     
     return False
 
-
 def get_store_data(appid):
     # Get store html
     # TODO Throw error on store page
     # TODO Think of a better way to do this
     tree = get_steam_store_html(appid)
+    review_tree = get_steam_reviews_html(appid)
 
     # Init data
     data = {
@@ -194,6 +201,7 @@ def get_store_data(appid):
         'all_percent': None,
         'short_desc': None,
         'long_desc': "",
+        'reviews_text': "",
         'tags': [],
         'is_dlc': None,
         'is_soundtrack': None,
@@ -211,6 +219,7 @@ def get_store_data(appid):
         data['recent_percent'], data['recent_count'], data['all_percent'], data['all_count'] = get_reviews_from_html(tree)
         data['short_desc'] = get_short_desc_from_html(tree)
         data['long_desc'] = get_long_desc_from_html(tree)
+        data['reviews_text'] = get_reviews_text_from_html(review_tree)
         data['tags'] = get_tags_from_html(tree)
         data['is_dlc'] = get_is_dlc_from_html(tree)
         data['is_soundtrack'] = get_is_soundtrack_from_html(tree)

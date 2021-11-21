@@ -17,6 +17,7 @@ dependencies:
   - rich
   - scikit-learn
   - shap
+  - tqdm
   - xgboost
   - pip
   - pip:

@@ -32,7 +32,7 @@ if __name__ == '__main__':
     # ==============================================================================================
     # Get Data
     # ==============================================================================================
-    print('\n=== Getting Data ===')
+    print('=== Getting Data ===')
     # Get reviewed games
     print(f'Reviews Input Path: {config["reviews_filepath"]}')
     df = pd.read_excel(config['reviews_filepath'])
