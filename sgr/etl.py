@@ -174,19 +174,13 @@ def process_data(df):
     model = SentenceTransformer('all-mpnet-base-v2')
     model.max_seq_length = 100
 
-    # Create embedding and explode short_desc embedding to multiple cols
-    df['feat_emb_short_desc'] = df['short_desc'].apply(lambda x: model.encode(x))
-    emb_len = df['feat_emb_short_desc'].values[0].shape[0]
-    emb_cols = [f'feat_emb_short_desc_{i}' for i in range(0, emb_len)]
-    df[emb_cols] = pd.DataFrame(df['feat_emb_short_desc'].tolist(), index=df.index)
-    df = df.drop(['feat_emb_short_desc'], axis=1).copy()
-
-    # Create embedding and explode long_desc embedding to multiple cols
-    df['feat_emb_long_desc'] = df['long_desc'].apply(lambda x: model.encode(x))
-    emb_len = df['feat_emb_long_desc'].values[0].shape[0]
-    emb_cols = [f'feat_emb_long_desc_{i}' for i in range(0, emb_len)]
-    df[emb_cols] = pd.DataFrame(df['feat_emb_long_desc'].tolist(), index=df.index)
-    df = df.drop(['feat_emb_long_desc'], axis=1).copy()
+    # Create embedding and explode desc embedding to multiple cols
+    df['desc'] = df['short_desc'] + ' ' + df['long_desc']
+    df['feat_emb_desc'] = df['desc'].apply(lambda x: np.mean([model.encode(sentence) for sentence in x.split('. ')], axis=0))
+    emb_len = df['feat_emb_desc'].values[0].shape[0]
+    emb_cols = [f'feat_emb_desc_{i}' for i in range(0, emb_len)]
+    df[emb_cols] = pd.DataFrame(df['feat_emb_desc'].tolist(), index=df.index)
+    df = df.drop(['feat_emb_desc'], axis=1).copy()
 
     ### Feature transforms
     transform_cols = [col for col in df.columns if 'percent' in col or 'count' in col]
