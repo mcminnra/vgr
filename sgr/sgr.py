@@ -138,15 +138,20 @@ if __name__ == '__main__':
     df_pred = df_pred.join(df[['name']], how='left')
     df_pred = df_pred[['name', 'pred_score']].sort_values('pred_score', ascending=False)
 
-    # Top 10
-    print('\n== Top 10 ==')
-    for index, row in df_pred.head(10).iterrows():
+    # Top
+    print('\n== Top 25 ==')
+    for index, row in df_pred.head(25).iterrows():
         print(f'{row["name"]}: {row["pred_score"]:0.2f}')
 
-    # Bottom 10
-    print('\n== Bottom 10 ==')
-    for index, row in df_pred.tail(10).iterrows():
+    # Bottom
+    print('\n== Bottom 25 ==')
+    for index, row in df_pred.tail(25).iterrows():
         print(f'{row["name"]}: {row["pred_score"]:0.2f}')
 
+    # Random
+    print('\n == Random Game ==')
+    rand_int = np.random.randint(low=0, high=df_pred.shape[0])
+    print(f'{df_pred.iloc[rand_int]["name"]}: {df_pred.iloc[rand_int]["pred_score"]:0.2f}')
+    
     # Output
     df_pred.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + f'/data/scores_{today.year}_{today.month}_{today.day}.csv')
