@@ -7,7 +7,7 @@ from lxml import html
 import requests
 from rich import print
 
-WAIT_FOR_RESP_DOWNLOAD = 0.10
+WAIT_FOR_RESP_DOWNLOAD = 0.2
 
 
 def get_library_appids(steam_url_name):
