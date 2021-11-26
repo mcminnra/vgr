@@ -7,7 +7,7 @@ from lxml import html
 import requests
 from rich import print
 
-WAIT_FOR_RESP_DOWNLOAD = 0.2
+WAIT_FOR_RESP_DOWNLOAD = 0.1
 
 
 def get_library_appids(steam_url_name):
@@ -15,7 +15,7 @@ def get_library_appids(steam_url_name):
     Gets appids from steam library
     """
 
-    r = requests.get(f'https://steamcommunity.com/id/{steam_url_name}/games?tab=all&xml=1')
+    r = requests.get(f'https://steamcommunity.com/id/{steam_url_name}/games?tab=all&xml=1', timeout=60)
     time.sleep(WAIT_FOR_RESP_DOWNLOAD)
     root = ET.fromstring(r.text)[2]
   
@@ -34,7 +34,7 @@ def get_wishlist_appids(steam_id):
     appids = []
     page_counter = 0
     while page_counter >= 0:
-        r = requests.get(f'https://store.steampowered.com/wishlist/profiles/{steam_id}/wishlistdata/?p={page_counter}')
+        r = requests.get(f'https://store.steampowered.com/wishlist/profiles/{steam_id}/wishlistdata/?p={page_counter}', timeout=60)
         time.sleep(WAIT_FOR_RESP_DOWNLOAD)
     
         wishlist = json.loads(r.text)
@@ -50,30 +50,30 @@ def get_wishlist_appids(steam_id):
     return appids
 
 def get_steam_search_appids(steam_url):
-        """
-        Gets appids from a particular Steam Search Page
-        """
-        r = requests.get(steam_url)
-        time.sleep(WAIT_FOR_RESP_DOWNLOAD)
-        tree = html.fromstring(r.text)
+    """
+    Gets appids from a particular Steam Search Page
+    """
+    r = requests.get(steam_url, timeout=60)
+    time.sleep(WAIT_FOR_RESP_DOWNLOAD)
+    tree = html.fromstring(r.text)
 
-        appids = [int(item.split(',')[0]) for item in tree.xpath('//a/@data-ds-appid')]
+    appids = [int(item.split(',')[0]) for item in tree.xpath('//a/@data-ds-appid')]
 
-        return appids
+    return appids
 
 def get_steam_store_html(appid):
     """
     Gets raw Steam store page HTML for a appid
     """
-    r = requests.get(f'https://store.steampowered.com/app/{appid}')
+    r = requests.get(f'https://store.steampowered.com/app/{appid}', timeout=60)
     time.sleep(WAIT_FOR_RESP_DOWNLOAD)
-    return html.fromstring(r.text)
+    return html.fromstring(r.text) 
 
 def get_steam_reviews_html(appid):
     """
     Gets raw Steam reviews page HTML for appid
     """
-    r = requests.get(f'https://steamcommunity.com/app/{appid}/reviews/?browsefilter=toprated&snr=1_5_100010_')
+    r = requests.get(f'https://steamcommunity.com/app/{appid}/reviews/?browsefilter=toprated&snr=1_5_100010_', timeout=60)
     time.sleep(WAIT_FOR_RESP_DOWNLOAD)
     return html.fromstring(r.text)
 
