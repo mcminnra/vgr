@@ -81,16 +81,24 @@ def get_data(df, steam_url_name, steam_id):
 
     # Enrich appids
     for appid in tqdm(df.index.values, desc='Getting Steam Store Data'):
-        # Not in cache
-        if appid not in df_cache.index:
-            dict_appid = get_store_data(appid)
-            s_appid = pd.Series(dict_appid).rename(dict_appid['steam_appid']).drop(labels=['steam_appid'])
-            df_cache = df_cache.append(s_appid)
-        # Outdated cache
-        elif date.fromisoformat(df_cache.at[appid,'_date_pulled']) < (date.today() - timedelta(days=14)):
-            dict_appid = get_store_data(appid)
-            s_appid = pd.Series(dict_appid).rename(dict_appid['steam_appid']).drop(labels=['steam_appid'])
-            df_cache = df_cache.drop([appid]).append(s_appid)
+        retries = 0
+        while retries < 5:
+            try:
+                # Not in cache
+                if appid not in df_cache.index:
+                    dict_appid = get_store_data(appid)
+                    s_appid = pd.Series(dict_appid).rename(dict_appid['steam_appid']).drop(labels=['steam_appid'])
+                    df_cache = df_cache.append(s_appid)
+                # Outdated cache
+                elif date.fromisoformat(df_cache.at[appid,'_date_pulled']) < (date.today() - timedelta(days=14)):
+                    dict_appid = get_store_data(appid)
+                    s_appid = pd.Series(dict_appid).rename(dict_appid['steam_appid']).drop(labels=['steam_appid'])
+                    df_cache = df_cache.drop([appid]).append(s_appid)
+            except Exception:
+                print(f'Error getting appid {appid}. Retry {retries+1}')
+                retries+=1
+                continue
+            break
 
     # resolve types
     df_cache = df_cache.convert_dtypes()
@@ -217,4 +225,8 @@ def process_data(df):
         df[f'feat_norm_{col}']=((df[f'{col}']-df[f'{col}'].mean())/df[f'{col}'].std()).fillna(0)
     df = df.astype({f'{col}': float for col in df.columns if 'feat_norm_' in col})  # Convert to float because it gets changed for some reason
 
-    return df.copy()
+    ### Write out processed for debugging
+    processed_path = base_path + '/data/processed.csv'
+    df.sort_values(by='name').to_csv(processed_path)
+
+    return df
