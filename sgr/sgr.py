@@ -65,19 +65,15 @@ if __name__ == '__main__':
     warnings.filterwarnings(action="ignore", message=r'.*Use subset.*of np.ndarray is not recommended')
 
     # Hyperparam tuning
-    def objective(params):
-        N_COMPONENTS = params['n_components']
-        MAX_DEPTH = params['max_depth']
-        N_ESTIMATORS = params['n_estimators']
-        LAMBDA = params['reg_lambda']
-        ALPHA = params['reg_alpha']
-        
-        pca = PCA(n_components=N_COMPONENTS, random_state=42)
+    def objective(params):     
+        pca = PCA(n_components=int(params['n_components']), random_state=42)
         model = XGBRegressor(
-            max_depth=MAX_DEPTH,
-            n_estimators=N_ESTIMATORS,
-            reg_lambda=LAMBDA,
-            reg_alpha=ALPHA,
+            max_depth=int(params['max_depth']),
+            subsample=params['subsample'],
+            colsample_bytree=params['colsample_bytree'],
+            min_child_weight=params['min_child_weight'],
+            reg_lambda=params['reg_lambda'],
+            reg_alpha=params['reg_alpha'],
             objective='reg:squarederror',
             verbosity=0,
             seed=42,
@@ -94,9 +90,11 @@ if __name__ == '__main__':
         }
 
     search_space = {
-        'n_components': hp.randint('n_components', 1, min(*X_train.shape)),
-        'max_depth': hp.randint('max_depth', 1, 100),  # Default = 6
-        'n_estimators': hp.randint('n_estimators', 1, 500),  # Default = 100
+        'n_components': hp.quniform('n_components', 1, min(*X_train.shape), 1),
+        'max_depth': hp.quniform('max_depth', 3, 15, 1),  # Default = 6
+        'subsample': hp.uniform('subsample', 0.2, 1.0),
+        'colsample_bytree': hp.uniform('colsample_bytree', 0.2, 1.0),
+        'min_child_weight': hp.uniform('min_child_weight', 0, 2),
         'reg_lambda': hp.uniform('reg_lambda', 0, 2),  # Default = 1
         'reg_alpha': hp.uniform('reg_alpha', 0, 4),  # Default = 0
     }
@@ -106,16 +104,18 @@ if __name__ == '__main__':
         fn=objective,
         space=search_space,
         algo=atpe.suggest,
-        max_evals=1000,
+        max_evals=2000,
         trials=trials
     )
     print(best)
 
     # Train Model
-    pca = PCA(n_components=best['n_components'], random_state=42)
+    pca = PCA(n_components=int(best['n_components']), random_state=42)
     model = XGBRegressor(
-        max_depth=best['max_depth'],
-        n_estimators=best['n_estimators'],
+        max_depth=int(best['max_depth']),
+        subsample=best['subsample'],
+        colsample_bytree=best['colsample_bytree'],
+        min_child_weight=best['min_child_weight'],
         reg_lambda=best['reg_lambda'],
         reg_alpha=best['reg_alpha'],
         objective='reg:squarederror',

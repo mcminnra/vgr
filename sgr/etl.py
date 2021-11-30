@@ -202,22 +202,42 @@ def process_data(df):
     df[emb_cols] = pd.DataFrame(df['feat_emb_reviews_text'].tolist(), index=df.index)
     df = df.drop(['feat_emb_reviews_text'], axis=1).copy()
 
-    ### Feature transforms
-    transform_cols = [col for col in df.columns if 'percent' in col or 'count' in col]
+    ### Feature Engineering
+    # Numerical Interactions
+    fe_cols = [col for col in df.columns if 'percent' in col or 'count' in col]
+    fe_pairs = [(col1, col2) for col1 in fe_cols for col2 in fe_cols if col1 != col2]
 
+    for col1, col2 in tqdm(fe_pairs, desc='Numeric Interactions'):
+        df[f'{col1}x{col2}'] = df[col1] * df[col2]  # Multiplicative Interaction
+        df[f'{col1}+{col2}'] = df[col1] + df[col2]  # Additive Interaction
+
+    ## Feature Transforms
+    fe_cols = [col for col in df.columns if 'percent' in col or 'count' in col]
     # Log
-    df_log = np.log(df[transform_cols])
-    df_log = df_log.copy().fillna(0).add_suffix('_log')
-    df_log[np.isinf(df_log)] = 0
+    df_tmp = np.log(df[fe_cols])
+    df_tmp = df_tmp.copy().fillna(0).add_suffix('_log')
+    df_tmp[np.isinf(df_tmp)] = 0
+    df = df.merge(df_tmp, how='inner', right_index=True, left_index=True)
 
     # Pow
-    df_pow = np.power(df[transform_cols], 2)
-    df_pow = df_pow.copy().fillna(0).add_suffix('_pow')
-    df_pow[np.isinf(df_pow)] = 0
-    
-    df = df.merge(df_log, how='inner', right_index=True, left_index=True)
-    df = df.merge(df_pow, how='inner', right_index=True, left_index=True)
-    del df_log, df_pow
+    df_tmp = np.power(df[fe_cols], 2)
+    df_tmp = df_tmp.copy().fillna(0).add_suffix('_pow')
+    df_tmp[np.isinf(df_tmp)] = 0
+    df = df.merge(df_tmp, how='inner', right_index=True, left_index=True)
+
+    # Reciprical
+    df_tmp = 1 / df[fe_cols]
+    df_tmp = df_tmp.copy().fillna(0).add_suffix('_recip')
+    df_tmp[np.isinf(df_tmp)] = 0
+    df = df.merge(df_tmp, how='inner', right_index=True, left_index=True)
+
+    # Sqrt
+    df_tmp = np.sqrt(df[fe_cols])
+    df_tmp = df_tmp.copy().fillna(0).add_suffix('_sqrt')
+    df_tmp[np.isinf(df_tmp)] = 0
+    df = df.merge(df_tmp, how='inner', right_index=True, left_index=True)
+
+    del df_tmp
 
     ### Normalize
     normalize_cols = [col for col in df.columns if 'percent' in col or 'count' in col]
