@@ -156,7 +156,6 @@ def process_data(df):
 
     Note: prefix "feat_" is columns used for training
     """
-
     ### Fill Null
     df['short_desc'] = df['short_desc'].fillna('')
     df['long_desc'] = df['short_desc'].fillna('')

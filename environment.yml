@@ -18,7 +18,7 @@ dependencies:
   - scikit-learn
   - shap
   - tqdm
-  - xgboost
   - pip
   - pip:
     - sentence-transformers
+    - xgboost
