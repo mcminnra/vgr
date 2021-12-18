@@ -3,154 +3,101 @@ from datetime import date, timedelta
 import math
 import os
 import pathlib
+import pickle
 
+from igdb.wrapper import IGDBWrapper
 import numpy as np
 import pandas as pd
 from rich import print
 from tqdm import tqdm
 from sentence_transformers import SentenceTransformer
 
-from steamapi import get_library_appids, get_wishlist_appids, get_steam_search_appids, get_store_data
+from game import Game
+from steamapi import get_steam_library, get_steam_wishlist, get_library_appids, get_wishlist_appids, get_steam_search_appids, get_store_data
 
 # Globals
 base_path = str(pathlib.Path(__file__).parent.parent.absolute())
 tqdm.pandas()
 
 
-def get_data(df, steam_url_name, steam_id):
-    total_games = df.shape[0]
+def get_data(config):
+    # Get IGDB
+    # igdb_client_id = "hlax4aqmbgg9ke7pu6ijaajemr92uk"
+    # igdb_client_secret = "xpmve0632748x2vl4iu7srl80ecl5z"
+    # r = requests.post(f"https://id.twitch.tv/oauth2/token?client_id={igdb_client_id}&client_secret={igdb_client_secret}&grant_type=client_credentials")
+    # print(r.text)
 
-    # Process scores df
-    df = df[df['Steam AppID'].notnull()]
-    df = df.astype({'Steam AppID': int})
-    df = df[['Steam AppID', 'Rating']]
-    print(f'Number of AppIDs Found in Review File: {df.shape[0]} (out of {total_games})')
+    igdb_client = IGDBWrapper("hlax4aqmbgg9ke7pu6ijaajemr92uk", "2jq81qzucxhfmgwbkkcdnvzj1nxu5w")
 
-    # Get library appids
-    appids_library = get_library_appids(steam_url_name)
-    df_library = pd.DataFrame({'Steam AppID': appids_library, 'Rating':None})
-    df_library = df_library.astype({'Steam AppID': int})
-    print(f'Number of AppIDs Found in Steam Library: {df_library.shape[0]}')
-
-    # Get wishlist appids
-    appids_wishlist = get_wishlist_appids(steam_id)
-    df_wishlist = pd.DataFrame({'Steam AppID': appids_wishlist, 'Rating':None})
-    df_wishlist = df_wishlist.astype({'Steam AppID': int})
-    print(f'Number of AppIDs Found in Steam Wishlist: {df_wishlist.shape[0]}')
-
-    # Get popular new releases appids
-    appids_pnr = get_steam_search_appids('https://store.steampowered.com/search/?filter=popularnew&sort_by=Released_DESC&os=win')
-    df_pnr = pd.DataFrame({'Steam AppID': appids_pnr, 'Rating':None})
-    df_pnr = df_pnr.astype({'Steam AppID': int})
-    print(f'Number of AppIDs Found in Steam "Popular New Releases": {df_pnr.shape[0]}')
-
-    # Get top sellers
-    appids_ts = get_steam_search_appids('https://store.steampowered.com/search/?filter=topsellers&os=win')
-    df_ts = pd.DataFrame({'Steam AppID': appids_ts, 'Rating':None})
-    df_ts = df_ts.astype({'Steam AppID': int})
-    print(f'Number of AppIDs Found in Steam "Top Sellers": {df_ts.shape[0]}')
-
-    # Join appids
-    df = df.append([df_library, df_wishlist, df_pnr, df_ts])
-    df = df.rename(columns={"Steam AppID": "steam_appid", "Rating": "rating"}).drop_duplicates(subset=['steam_appid'], keep='first')
-    df = df.set_index('steam_appid')
-
-    # Load cache
-    cache_path = base_path + '/data/cache.csv'
+    # Load cache if exists
+    cache_path = base_path + '/data/cache.pkl'
     if os.path.isfile(cache_path):
-        df_cache = pd.read_csv(cache_path).set_index('steam_appid')
+        print(f'Loaded cache at => {cache_path}')
+        with open(cache_path, 'rb') as file:
+            games = pickle.load(file)
     else:
-        df_cache = pd.DataFrame(
-            columns=[
-                'steam_appid',
-                '_date_pulled',
-                'name',
-                'release_date',
-                'recent_count',
-                'recent_percent',
-                'all_count',
-                'all_percent',
-                'short_desc',
-                'long_desc',
-                'reviews_text',
-                'tags',
-                'is_dlc',
-                'is_soundtrack',
-                'is_video',
-            ]).set_index('steam_appid')
+        games = []
 
-    # Enrich appids
-    for appid in tqdm(df.index.values, desc='Getting Steam Store Data'):
-        retries = 0
-        while retries < 5:
-            try:
-                # Not in cache
-                if appid not in df_cache.index:
-                    dict_appid = get_store_data(appid)
-                    s_appid = pd.Series(dict_appid).rename(dict_appid['steam_appid']).drop(labels=['steam_appid'])
-                    df_cache = df_cache.append(s_appid)
-                # Outdated cache
-                elif date.fromisoformat(df_cache.at[appid,'_date_pulled']) < (date.today() - timedelta(days=14)):
-                    dict_appid = get_store_data(appid)
-                    s_appid = pd.Series(dict_appid).rename(dict_appid['steam_appid']).drop(labels=['steam_appid'])
-                    df_cache = df_cache.drop([appid]).append(s_appid)
-            except Exception:
-                print(f'Error getting appid {appid}. Retry {retries+1}')
-                retries+=1
-                continue
-            break
+    # Get Reviews File
+    df = pd.read_excel(config['reviews_filepath']).replace({np.nan: None})
+    for _, row in tqdm(df.iterrows(), desc='Getting Review File'):
+        game_igdb_ids = [game.igdb_id for game in games]
+        if row['IGDB ID'] not in game_igdb_ids:
+            game = Game(
+                igdb_client,
+                name=row['Name'],
+                igdb_id=row['IGDB ID'],
+                steam_id=row['Steam ID'],
+                personal_rating=row['Rating']
+            )
+            games.append(game)
 
-    # resolve types
-    df_cache = df_cache.convert_dtypes()
-    df_cache['tags'] = df_cache['tags'].apply(lambda x: literal_eval(x) if x and isinstance(x, str) else x)
+    # Get Steam Library
+    for item in tqdm(get_steam_library(config['steam_url_name']), desc='Getting Steam Library'):
+        game_steam_ids = [game.steam_id for game in games]
+        if item['steam_id'] not in game_steam_ids:
+            game = Game(
+                igdb_client,
+                name=item['name'],
+                steam_id=item['steam_id'],
+            )
+            games.append(game)
 
-    # write cache
-    df_cache.sort_values(by='name').to_csv(cache_path)
+    # Get Steam Wishlist
+    for item in tqdm(get_steam_wishlist(config['steam_user_id']), desc='Getting Steam Wishlist'):
+        game_steam_ids = [game.steam_id for game in games]
+        if item['steam_id'] not in game_steam_ids:
+            game = Game(
+                igdb_client,
+                name=item['name'],
+                steam_id=item['steam_id']
+            )
+            games.append(game)
 
-    # Join with ratings    
-    df = df_cache.merge(df, how='left', right_index=True, left_index=True, suffixes=(None, None))
-    del df_cache
+    # Dump Cache
+    with open(cache_path, 'wb') as file:
+        pickle.dump(games, file)
 
-    print(f'\nTotal AppIDs in cache: {df.shape[0]}')
-
-    # Check for valid data points
-    # No Names
-    before = df.shape[0]
-    df = df[df['name'].notnull()]
-    after = df.shape[0]
-    print(f'Removed {before-after} AppIDs - Missing Store Data')
-
-    # DLC Check
-    before = df.shape[0]
-    df = df[df['is_dlc'] == False]
-    after = df.shape[0]
-    print(f'Removed {before-after} AppIDs - DLC')
-
-    # Soundtrack Check
-    before = df.shape[0]
-    df = df[df['is_soundtrack'] == False]
-    after = df.shape[0]
-    print(f'Removed {before-after} AppIDs - Soundtrack')
-
-    # Video Check
-    before = df.shape[0]
-    df = df[df['is_video'] == False]
-    after = df.shape[0]
-    print(f'Removed {before-after} AppIDs - Video')
-
-    # Not Released Check
-    before = df.shape[0]
-    df = df[(pd.to_datetime(df['release_date']).dt.date <= date.today()) & (df['release_date'].notnull())]
-    after = df.shape[0]
-    print(f'Removed {before-after} AppIDs - Not Released')
-
-    # Summary
-    print(f'Total AppIDs in filtered dataset: {df.shape[0]}')
-    print(f'Total AppIDs reviewed: {df[df["rating"].notnull()].shape[0]}')
+    # Convert to df
+    df = pd.concat([game.to_series() for game in games], axis=1, ignore_index=True).T
+    data_path = base_path + '/data/data.csv'
+    df.to_csv(data_path)
+    print(df)
 
     return df
 
+
 def process_data(df):
+    """
+    Process data and do some feature engineering
+
+    Note: prefix "feat_" is columns used for training
+    """
+    import sys; sys.exit()
+    pass
+
+
+def old_process_data(df):
     """
     Process data and do some feature engineering
 

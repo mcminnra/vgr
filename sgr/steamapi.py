@@ -10,11 +10,46 @@ from rich import print
 WAIT_FOR_RESP_DOWNLOAD = 0.1
 
 
+def get_steam_library(steam_url_name):
+    """
+    Gets appids from steam library
+    """
+    r = requests.get(f'https://steamcommunity.com/id/{steam_url_name}/games?tab=all&xml=1', timeout=60)
+    time.sleep(WAIT_FOR_RESP_DOWNLOAD)
+    root = ET.fromstring(r.text)[2]
+  
+    games = []
+    for library_item in root.findall('game'):
+        game = {}
+        game['steam_id'] = int(library_item.find('appID').text)
+        game['name'] = library_item.find('name').text
+        games.append(game)
+
+    return games
+
+def get_steam_wishlist(steam_user_id):
+    # Iterate through wishlist pages
+    games = []
+    page_counter = 0
+    while page_counter >= 0:
+        r = requests.get(f'https://store.steampowered.com/wishlist/profiles/{steam_user_id}/wishlistdata/?p={page_counter}', timeout=60)
+        time.sleep(WAIT_FOR_RESP_DOWNLOAD)
+    
+        wishlist = json.loads(r.text)
+        if wishlist:
+            steam_ids = list(wishlist.keys())
+            games += [{'steam_id': int(steam_id), 'name': wishlist[steam_id]['name']} for steam_id in steam_ids]
+
+            page_counter += 1
+        else:
+            page_counter = -1
+
+    return games
+
 def get_library_appids(steam_url_name):
     """
     Gets appids from steam library
     """
-
     r = requests.get(f'https://steamcommunity.com/id/{steam_url_name}/games?tab=all&xml=1', timeout=60)
     time.sleep(WAIT_FOR_RESP_DOWNLOAD)
     root = ET.fromstring(r.text)[2]
@@ -29,7 +64,6 @@ def get_wishlist_appids(steam_id):
     """
     Gets appids from steam wishlist
     """
-
     # Iterate through wishlist pages
     appids = []
     page_counter = 0

@@ -20,5 +20,6 @@ dependencies:
   - tqdm
   - pip
   - pip:
+    - igdb-api-v4
     - sentence-transformers
     - xgboost

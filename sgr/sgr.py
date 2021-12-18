@@ -32,18 +32,11 @@ if __name__ == '__main__':
     # ==============================================================================================
     # Get Data
     # ==============================================================================================
-    print('=== Getting Data ===')
-    # Get reviewed games
-    print(f'Reviews Input Path: {config["reviews_filepath"]}')
-    df = pd.read_excel(config['reviews_filepath'])
-
-    # Create data by getting library and wishlist games and enriching input
-    df = get_data(df, config['steam_url_name'], config['steam_id'])
+    df = get_data(config)
 
     # ==============================================================================================
     # Data processing and Feature Engineering
     # ==============================================================================================
-    print('\n=== Processing Data ===')
     df = process_data(df)
 
     # ==============================================================================================

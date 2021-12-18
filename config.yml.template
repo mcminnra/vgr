@@ -1,3 +1,3 @@
 reviews_filepath: /path/to/review/file.xlsx
 steam_url_name: None  # https://steamcommunity.com/id/<your_steam_url_name>/
-steam_id: None # https://store.steampowered.com/account/ => Steam ID: <Some Number>
+steam_user_id: None # https://store.steampowered.com/account/ => Steam ID: <Some Number>
