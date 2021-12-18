@@ -12,7 +12,7 @@ WAIT_FOR_RESP_DOWNLOAD = 0.1
 
 def get_steam_library(steam_url_name):
     """
-    Gets appids from steam library
+    Gets (names, appids) from steam library
     """
     r = requests.get(f'https://steamcommunity.com/id/{steam_url_name}/games?tab=all&xml=1', timeout=60)
     time.sleep(WAIT_FOR_RESP_DOWNLOAD)
@@ -28,6 +28,9 @@ def get_steam_library(steam_url_name):
     return games
 
 def get_steam_wishlist(steam_user_id):
+    """
+    Gets (names, appids) from steam wishlist
+    """
     # Iterate through wishlist pages
     games = []
     page_counter = 0

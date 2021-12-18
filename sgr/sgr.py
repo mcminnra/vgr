@@ -43,7 +43,7 @@ if __name__ == '__main__':
     # Model Training
     # ==============================================================================================
     print('\n=== Model ===')
-    rating_idx = df['rating'].notnull()
+    rating_idx = df['personal_rating'].notnull()
     df_train = df[rating_idx]
     df_pred = df[-rating_idx]
     print(f'Training Data - Rows:{df_train.shape[0]}, Cols:{df_train.shape[1]}')
@@ -51,7 +51,7 @@ if __name__ == '__main__':
     feature_cols = [col for col in df.columns if 'feat_' in col]
     X_train = df_train[feature_cols]
     X_pred = df_pred[feature_cols]
-    y_train = df_train['rating']
+    y_train = df_train['personal_rating']
 
     # Ignore specific XGBoost error
     import warnings
@@ -97,7 +97,7 @@ if __name__ == '__main__':
         fn=objective,
         space=search_space,
         algo=atpe.suggest,
-        max_evals=2000,
+        max_evals=1000,
         trials=trials
     )
     print(best)
@@ -125,26 +125,26 @@ if __name__ == '__main__':
     y_pred = model.predict(pca.transform(X_pred))
 
     df_pred = pd.DataFrame({
-        'steam_appid': X_pred.index.values,
-        'pred_score': y_pred
-    }).set_index('steam_appid')
-    df_pred = df_pred.join(df[['name']], how='left')
-    df_pred = df_pred[['name', 'pred_score']].sort_values('pred_score', ascending=False)
+        'igdb_id': X_pred.index.values,
+        'predicted_rating': y_pred
+    }).set_index('igdb_id')
+    df_pred = df_pred.join(df[['input_name']], how='left')
+    df_pred = df_pred[['input_name', 'predicted_rating']].sort_values('predicted_rating', ascending=False)
 
     # Top
     print('\n== Top 25 ==')
     for index, row in df_pred.head(25).iterrows():
-        print(f'{row["name"]}: {row["pred_score"]:0.2f}')
+        print(f'{row["input_name"]}: {row["predicted_rating"]:0.2f}')
 
     # Bottom
     print('\n== Bottom 25 ==')
     for index, row in df_pred.tail(25).iterrows():
-        print(f'{row["name"]}: {row["pred_score"]:0.2f}')
+        print(f'{row["input_name"]}: {row["predicted_rating"]:0.2f}')
 
     # Random
     print('\n == Random Game ==')
     rand_int = np.random.randint(low=0, high=df_pred.shape[0])
-    print(f'{df_pred.iloc[rand_int]["name"]}: {df_pred.iloc[rand_int]["pred_score"]:0.2f}')
+    print(f'{df_pred.iloc[rand_int]["input_name"]}: {df_pred.iloc[rand_int]["predicted_rating"]:0.2f}')
     
     # Output
     df_pred.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + f'/data/scores_{today.year}_{today.month}_{today.day}.csv')
