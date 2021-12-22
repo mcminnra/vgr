@@ -100,7 +100,8 @@ class Game:
                 steam_id = int([part for part in steam_url.split('/') if part.isnumeric()][0])
                 self.steam_id = steam_id
             else:
-                print(f'Unable to get Steam ID for {self}')
+                pass
+                # print(f'Unable to get Steam ID for {self}')
 
         # Only IGDB id set. Pull Steam ID from website link.
         elif self.igdb_id and not self.steam_id:
@@ -115,7 +116,8 @@ class Game:
                 steam_id = int([part for part in steam_url.split('/') if part.isnumeric()][0])
                 self.steam_id = steam_id
             else:
-                print(f'Unable to get Steam ID for {self}')
+                pass
+                # print(f'Unable to get Steam ID for {self}')
 
         # Only Steam ID set. Pull IGDB ID from games that use the Steam ID website link.
         elif not self.igdb_id and self.steam_id:
@@ -145,7 +147,8 @@ class Game:
             elif len(websites_response) == 1:
                 self.igdb_id = websites_response[0]['game']
             else:
-                print(f'Unable to get IGDB ID for {self}')
+                pass
+                # print(f'Unable to get IGDB ID for {self}')
 
         # Keys already set.
         else:
@@ -204,7 +207,7 @@ class Game:
             themes_response = json.loads(byte_array)
             self.igdb_metadata['igdb_themes'] = [r['name'] for r in themes_response]
 
-        time.sleep(.5)  # Wait to enforce rate limit for IGDB
+        time.sleep(.6)  # Wait to enforce rate limit for IGDB
        
     def _resolve_steam_metadata(self):
         steam_store_tree = get_steam_store_html(self.steam_id)
@@ -217,7 +220,7 @@ class Game:
         except Exception as e:
             print(f'Failed pulling Steam metadata for {self.input_name} - Does https://store.steampowered.com/app/{self.steam_id} exist?')
 
-        time.sleep(.5)
+        time.sleep(.6)
 
     def to_series(self):
         series_dict = {}

@@ -1,5 +1,7 @@
 from ast import literal_eval
 from datetime import date, timedelta
+import json
+import inspect
 import math
 import os
 import pathlib
@@ -18,6 +20,16 @@ from steamapi import get_steam_library, get_steam_wishlist, get_library_appids, 
 # Globals
 base_path = str(pathlib.Path(__file__).parent.parent.absolute())
 tqdm.pandas()
+
+# Replace print with tqdm.write
+old_print = print
+def new_print(*args, **kwargs):
+    try:
+        tqdm.write(*args, **kwargs)
+    except:
+        old_print(*args, **kwargs)
+# globaly replace print with new_print
+inspect.builtins.print = new_print
 
 
 def get_data(config):
@@ -51,7 +63,11 @@ def get_data(config):
                 personal_rating=row['Rating']
             )
             games.append(game)
+            # FIXME: Probably shouldn't we writing after every game, but fuck it. 
+            with open(cache_path, 'wb') as file:
+                pickle.dump(games, file)
 
+    ### Steam
     # Get Steam Library
     for item in tqdm(get_steam_library(config['steam_url_name']), desc='Getting Steam Library'):
         game_steam_ids = [game.steam_id for game in games]
@@ -62,6 +78,9 @@ def get_data(config):
                 steam_id=item['steam_id'],
             )
             games.append(game)
+            # FIXME: Probably shouldn't we writing after every game, but fuck it. 
+            with open(cache_path, 'wb') as file:
+                pickle.dump(games, file)
 
     # Get Steam Wishlist
     for item in tqdm(get_steam_wishlist(config['steam_user_id']), desc='Getting Steam Wishlist'):
@@ -73,10 +92,39 @@ def get_data(config):
                 steam_id=item['steam_id']
             )
             games.append(game)
+            # FIXME: Probably shouldn't be writing after every game, but fuck it. 
+            with open(cache_path, 'wb') as file:
+                pickle.dump(games, file)
 
-    # Dump Cache
-    with open(cache_path, 'wb') as file:
-        pickle.dump(games, file)
+    ### IGDB Top 100
+    # Pulling for all platforms
+    byte_array = igdb_client.api_request(
+        'platforms',
+        f'fields id, name; limit 500;'
+    )
+    platforms_response = json.loads(byte_array)
+
+    for i, platform in enumerate(platforms_response):
+        byte_array = igdb_client.api_request(
+            'games',
+            f'fields id, name; where platforms = {platform["id"]} & total_rating != null & total_rating_count >= 5; sort total_rating desc; limit 100;'
+        )
+        games_response = json.loads(byte_array)
+        if not games_response:
+            print(f'No rated games found for {platform["name"]}. Skipping...')
+            continue
+        for game in tqdm(games_response, desc=f'[{i+1}/{len(platforms_response)}] Getting IGDB {platform["name"]} Top 100'):
+            game_igdb_ids = [game.igdb_id for game in games]
+            if game['id'] not in game_igdb_ids:
+                game = Game(
+                    igdb_client,
+                    name=game['name'],
+                    igdb_id=game['id'],
+                )
+                games.append(game)
+                # FIXME: Probably shouldn't we writing after every game, but fuck it. 
+                with open(cache_path, 'wb') as file:
+                    pickle.dump(games, file)
 
     # Convert to df
     df = pd.concat([game.to_series() for game in games], axis=1, ignore_index=True).T
@@ -122,7 +170,7 @@ def process_data(df):
     df['steam_all_count'] = df['steam_all_count'].fillna(df['steam_all_count'].mean()).round(0).astype(int)
 
     # Tags
-    tag_replace = lambda item: item.replace(' ', '_').replace('-', '_').replace('\'', '').replace('.', 'point').replace('&', 'and')
+    tag_replace = lambda item: item.replace(' ', '_').replace('-', '_').replace('\'', '').replace('/', '_').replace('.', 'point').replace('&', 'and')
     df['igdb_genres'] = df['igdb_genres'].apply(lambda row: [tag_replace(item) for item in row] if row else None)
     df['igdb_themes'] = df['igdb_themes'].apply(lambda row: [tag_replace(item) for item in row] if row else None)
     df['steam_tags'] = df['steam_tags'].apply(lambda row: [tag_replace(item) for item in row] if row else None)
@@ -139,7 +187,7 @@ def process_data(df):
     def explode_log(df, explode_col):
         df_tags = df[[explode_col]]
         UNIQUE_TAGS = sorted(list(set([tag for row in df_tags[explode_col].tolist() if row for tag in row])), reverse=False)
-        df_tags[[f'{explode_col}_{tag}' for tag in UNIQUE_TAGS]] = None
+        df_tags[[f'{explode_col}_{tag}' for tag in UNIQUE_TAGS]] = 0
 
         # Map tag postion importance to column
         for row_idx, row in df_tags.iterrows():
@@ -150,28 +198,29 @@ def process_data(df):
                         df_tags.at[row_idx, f'{explode_col}_{tag}'] = 1
                     else:
                         df_tags.at[row_idx, f'{explode_col}_{tag}'] = math.log(tags_len-tag_idx, tags_len)  # Logarithmic importance
-        df_tags = df_tags.drop([explode_col], axis=1).fillna(0)
-
+        df_tags = df_tags.drop([explode_col], axis=1)
         return df_tags
 
     def explode_binary(df, explode_col):
         df_tags = df[[explode_col]]
         UNIQUE_TAGS = sorted(list(set([tag for row in df_tags[explode_col].tolist() if row for tag in row])), reverse=False)
-        df_tags[[f'{explode_col}_{tag}' for tag in UNIQUE_TAGS]] = None
+        df_tags[[f'{explode_col}_{tag}' for tag in UNIQUE_TAGS]] = 0
 
         # Map tag postion importance to column
         for row_idx, row in df_tags.iterrows():
             if row[explode_col]:
                 for tag in row[explode_col]:
                     df_tags.at[row_idx, f'{explode_col}_{tag}'] = 1
-        df_tags = df_tags.drop([explode_col], axis=1).fillna(0)
-
+        df_tags = df_tags.drop([explode_col], axis=1)
         return df_tags
 
     df = df.merge(explode_binary(df, 'igdb_genres'), how='inner', right_index=True, left_index=True, suffixes=(None, None)).drop(['igdb_genres'], axis=1)
     df = df.merge(explode_binary(df, 'igdb_themes'), how='inner', right_index=True, left_index=True, suffixes=(None, None)).drop(['igdb_themes'], axis=1)
     df = df.merge(explode_log(df, 'steam_tags'), how='inner', right_index=True, left_index=True, suffixes=(None, None)).drop(['steam_tags'], axis=1)
     
+    # FIXME: Tag function generating duplicates for some tags for reasons that escape me. Quick fix to just remove them after.
+    df = df.drop_duplicates()
+
     # Embeddings
     model = SentenceTransformer('all-mpnet-base-v2')
     model.max_seq_length = 500
