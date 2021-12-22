@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from rich import print
 from rich.console import Console
+from sklearn import metrics
 from sklearn.decomposition import PCA
 from sklearn.model_selection import cross_val_score
 from xgboost import XGBRegressor
@@ -74,10 +75,10 @@ if __name__ == '__main__':
         )
         X_train_pca = pca.fit_transform(X_train)
         model.fit(X_train_pca, y_train)
-        mse = cross_val_score(model, X_train_pca, y_train, scoring='neg_mean_squared_error', cv=5).mean()*-1
+        loss = cross_val_score(model, X_train_pca, y_train, scoring='neg_mean_squared_error', cv=5).mean()*-1
 
         return {
-            'loss': mse,
+            'loss': loss,
             'status': STATUS_OK,
             'params': params
         }
@@ -118,17 +119,20 @@ if __name__ == '__main__':
     )
     X_train_pca = pca.fit_transform(X_train)
     model.fit(X_train_pca, y_train)
-    scores = cross_val_score(model, X_train_pca, y_train, scoring='neg_mean_squared_error', cv=5)
-    print(f'Avg. MSE: {scores.mean()*-1:0.4f} (+/- {scores.std()*-1:0.4f})')
+
+    y_hat = model.predict(X_train_pca)
+    print(f'MSE: {metrics.mean_squared_error(y_train, y_hat)}')
+    print(f'R2: {metrics.r2_score(y_train, y_hat)}')
+
+    # metrics = ['neg_mean_squared_error', 'r2']
+    # for metric in metrics:
+    #     scores = cross_val_score(model, X_train_pca, y_train, scoring=metric, cv=5)
+    #     print(f'Avg. \'{metric}\': {scores.mean():0.4f} (+/- {scores.std():0.4f})')
 
     # Predict
     y_pred = model.predict(pca.transform(X_pred))
-
-    df_pred = pd.DataFrame({
-        'igdb_id': X_pred.index.values,
-        'predicted_rating': y_pred
-    }).set_index('igdb_id')
-    df_pred = df_pred.join(df[['input_name']], how='left')
+    
+    df_pred['predicted_rating'] = y_pred
     df_pred = df_pred[['input_name', 'predicted_rating']].sort_values('predicted_rating', ascending=False)
 
     # Top
