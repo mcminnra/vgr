@@ -1,5 +1,3 @@
-from ast import literal_eval
-from datetime import date, timedelta
 import json
 import inspect
 import math
@@ -16,7 +14,8 @@ from tqdm import tqdm
 from sentence_transformers import SentenceTransformer
 
 from game import Game
-from steamapi import get_steam_library, get_steam_wishlist, get_library_appids, get_wishlist_appids, get_steam_search_appids, get_store_data
+from igdb_client import IGDBClient
+from steamapi import get_steam_library, get_steam_wishlist
 
 # Globals
 base_path = str(pathlib.Path(__file__).parent.parent.absolute())
@@ -34,7 +33,7 @@ inspect.builtins.print = new_print
 
 
 def get_data(config):
-    igdb_client = IGDBWrapper("hlax4aqmbgg9ke7pu6ijaajemr92uk", "2jq81qzucxhfmgwbkkcdnvzj1nxu5w")
+    igdb_client = IGDBClient(config['igdb_client_id'], config['igdb_client_secret'])
 
     # Load cache if exists
     cache_path = base_path + '/data/cache.pkl'
@@ -93,14 +92,14 @@ def get_data(config):
 
     ### IGDB Top 100
     # Pulling for all platforms
-    byte_array = igdb_client.api_request(
+    byte_array = igdb_client._igdb_wrapper.api_request(
         'platforms',
         f'fields id, name; limit 500;'
     )
     platforms_response = json.loads(byte_array)
 
     for i, platform in enumerate(platforms_response):
-        byte_array = igdb_client.api_request(
+        byte_array = igdb_client._igdb_wrapper.api_request(
             'games',
             f'fields id, name; where platforms = {platform["id"]} & total_rating != null & total_rating_count >= 5; sort total_rating desc; limit 100;'
         )

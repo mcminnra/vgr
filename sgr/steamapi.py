@@ -14,18 +14,23 @@ def get_steam_library(steam_url_name):
     """
     Gets (names, appids) from steam library
     """
-    r = requests.get(f'https://steamcommunity.com/id/{steam_url_name}/games?tab=all&xml=1', timeout=60)
-    time.sleep(WAIT_FOR_RESP_DOWNLOAD)
-    root = ET.fromstring(r.text)[2]
-  
-    games = []
-    for library_item in root.findall('game'):
-        game = {}
-        game['steam_id'] = int(library_item.find('appID').text)
-        game['name'] = library_item.find('name').text
-        games.append(game)
+    try:
+        r = requests.get(f'https://steamcommunity.com/id/{steam_url_name}/games?tab=all&xml=1', timeout=60)
+        time.sleep(WAIT_FOR_RESP_DOWNLOAD)
+        root = ET.fromstring(r.text)[2]
+    
+        games = []
+        for library_item in root.findall('game'):
+            game = {}
+            game['steam_id'] = int(library_item.find('appID').text)
+            game['name'] = library_item.find('name').text
+            games.append(game)
 
-    return games
+        return games
+    except Exception as e:
+        print('Failed to get Steam Library')
+        print(r.text)
+        raise e
 
 def get_steam_wishlist(steam_user_id):
     """

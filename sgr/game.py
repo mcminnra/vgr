@@ -77,90 +77,18 @@ class Game:
             return False
 
     def _resolve_ids(self):
-        # No ids set. Return best search from IGDB
-        if not self.igdb_id and not self.steam_id:  
-            # Get best IGDB result for input_name
-            search_input_name = self.input_name.encode('latin-1', 'ignore').decode('latin-1')
-            byte_array = self._igdb_client.api_request(
-                'games',
-                f'search "{search_input_name}"; fields *; where category != (5, 6, 7);'  # No mods, episodes, or seasons when searching by name 
-            )
-            games_response = json.loads(byte_array)
-            self.igdb_id = games_response[0]['id']
-
-            # Get Steam ID (if it exists)
-            byte_array = self._igdb_client.api_request(
-                'websites',
-                f'fields *; where game = {self.igdb_id} & category = 13;'
-            )
-            websites_response = json.loads(byte_array)
-
-            if websites_response:
-                steam_url = websites_response[0]['url']
-                steam_id = int([part for part in steam_url.split('/') if part.isnumeric()][0])
-                self.steam_id = steam_id
-            else:
-                pass
-                # print(f'Unable to get Steam ID for {self}')
-
-        # Only IGDB id set. Pull Steam ID from website link.
-        elif self.igdb_id and not self.steam_id:
-            byte_array = self._igdb_client.api_request(
-                'websites',
-                f'fields *; where game = {self.igdb_id} & category = 13;'
-            )
-            websites_response = json.loads(byte_array)
-
-            if websites_response:
-                steam_url = websites_response[0]['url']
-                steam_id = int([part for part in steam_url.split('/') if part.isnumeric()][0])
-                self.steam_id = steam_id
-            else:
-                pass
-                # print(f'Unable to get Steam ID for {self}')
-
-        # Only Steam ID set. Pull IGDB ID from games that use the Steam ID website link.
-        elif not self.igdb_id and self.steam_id:
-            search_string = f'/{self.steam_id}'
-            byte_array = self._igdb_client.api_request(
-                'websites',
-                f'fields *; where url = *"{search_string}"* & category = 13;'
-            )
-            websites_response = json.loads(byte_array)
-            
-            if len(websites_response) > 1:
-                # More than 1 game has the same steam id website. Take the one with the most reviews or first released
-                search_igdb_ids = str(tuple([r['game'] for r in websites_response]))
-                byte_array = self._igdb_client.api_request(
-                    'games',
-                    f'fields *; where id = {search_igdb_ids} & category != (5, 6, 7);'  # No mods, episodes, or seasons when searching by name 
-                )
-                games_response = json.loads(byte_array)
-                for game in games_response:
-                    if 'total_rating_count' not in game:
-                        game['total_rating_count'] = 0
-                    if 'first_release_date' not in game:
-                        game['first_release_date'] = int(time.time())
-                    game['first_release_date'] *= -1
-
-                self.igdb_id = sorted(games_response, key=lambda x: (x['total_rating_count'], x['first_release_date']), reverse=True)[0]['id']
-            elif len(websites_response) == 1:
-                self.igdb_id = websites_response[0]['game']
-            else:
-                pass
-                # print(f'Unable to get IGDB ID for {self}')
-
-        # Keys already set.
-        else:
+        if not self.igdb_id and not self.steam_id:  # No ids set. Return best search from IGDB
+            self.igdb_id = self._igdb_client.get_igdb_id_by_name(self.input_name)
+            self.steam_id = self._igdb_client.get_steam_id_by_igdb_id(self.igdb_id)
+        elif self.igdb_id and not self.steam_id:  # Only IGDB id set. Pull Steam ID from website link.
+            self.steam_id = self._igdb_client.get_steam_id_by_igdb_id(self.igdb_id)
+        elif not self.igdb_id and self.steam_id:  # Only Steam ID set. Pull IGDB ID from games that use the Steam ID website link.
+            self.igdb_id = self._igdb_client.get_igdb_id_by_steam_id(self.steam_id)
+        else:  # Keys already set.
             pass  # May log something here in the future
 
     def _resolve_igdb_metadata(self):
-        byte_array = self._igdb_client.api_request(
-            'games',
-            f'fields *; where id = {self.igdb_id};'
-        )
-        games_response = json.loads(byte_array)
-        igdb_metadata = games_response[0]
+        igdb_metadata = self._igdb_client.get_game(self.igdb_id)
 
         # Process game metadata
         self.igdb_metadata['igdb_name'] = igdb_metadata['name'] if 'name' in igdb_metadata else None
@@ -175,39 +103,13 @@ class Game:
         self.igdb_metadata['igdb_storyline'] = igdb_metadata['storyline'].strip().replace('\n', '') if 'storyline' in igdb_metadata else None
 
         # Genres
-        self.igdb_metadata['igdb_genres'] = None
-        if 'genres' in igdb_metadata:
-            genre_id_str = str(tuple(igdb_metadata["genres"])) if len(igdb_metadata["genres"]) > 1 else igdb_metadata["genres"][0]
-            byte_array = self._igdb_client.api_request(
-                'genres',
-                f'fields *; where id = {genre_id_str};'
-            )
-            genres_response = json.loads(byte_array)
-            self.igdb_metadata['igdb_genres'] = [r['name'] for r in genres_response]
-
+        self.igdb_metadata['igdb_genres'] = self._igdb_client.get_genres_by_genre_ids(igdb_metadata["genres"]) if 'genres' in igdb_metadata else None
+            
         # Keywords
-        self.igdb_metadata['igdb_keywords'] = None
-        if 'keywords' in igdb_metadata:
-            keyword_id_str = str(tuple(igdb_metadata["keywords"])) if len(igdb_metadata["keywords"]) > 1 else igdb_metadata["keywords"][0]
-            byte_array = self._igdb_client.api_request(
-                'keywords',
-                f'fields *; where id = {keyword_id_str};'
-            )
-            keywords_response = json.loads(byte_array)
-            self.igdb_metadata['igdb_keywords'] = [r['name'] for r in keywords_response]
+        self.igdb_metadata['igdb_keywords'] = self._igdb_client.get_keywords_by_keyword_ids(igdb_metadata["keywords"]) if 'keywords' in igdb_metadata else None
 
         # Themes
-        self.igdb_metadata['igdb_themes'] = None
-        if 'themes' in igdb_metadata:
-            theme_id_str = str(tuple(igdb_metadata["themes"])) if len(igdb_metadata["themes"]) > 1 else igdb_metadata["themes"][0]
-            byte_array = self._igdb_client.api_request(
-                'themes',
-                f'fields *; where id = {theme_id_str};'
-            )
-            themes_response = json.loads(byte_array)
-            self.igdb_metadata['igdb_themes'] = [r['name'] for r in themes_response]
-
-        time.sleep(.6)  # Wait to enforce rate limit for IGDB
+        self.igdb_metadata['igdb_themes'] = self._igdb_client.get_themes_by_theme_ids(igdb_metadata["themes"]) if 'themes' in igdb_metadata else None
        
     def _resolve_steam_metadata(self):
         steam_store_tree = get_steam_store_html(self.steam_id)
