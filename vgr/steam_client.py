@@ -60,6 +60,25 @@ class SteamClient():
         return games
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(5))
+    def get_steam_search_page(self, steam_url):
+        """
+        Gets (names, appids) from a particular Steam Search Page
+        """
+        r = requests.get(steam_url, timeout=60)
+        time.sleep(WAIT_TIME)
+        tree = html.fromstring(r.text)
+        
+        games = []
+        for link in tree.xpath("//a[@data-ds-appid]"):
+            game = {
+                'steam_id': int(link.get('data-ds-appid').split(',')[0]),
+                'name': link.find_class("title")[0].text_content()
+            }
+            games.append(game)
+
+        return games
+
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(5))
     def get_steam_store_html(self, appid):
         """
         Gets raw Steam store page HTML for a appid

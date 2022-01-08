@@ -74,10 +74,10 @@ def get_data(config):
     # Steam
     # =========================================================================
     # Get Steam Library
-    steam_library = steam_client.get_steam_library()
-    logger.info(f'{len(steam_library)} games found in Steam library')
+    steam_items = steam_client.get_steam_library()
+    logger.info(f'{len(steam_items)} games found in Steam library')
     with logging_redirect_tqdm(loggers=[logging.getLogger('vgr')]):
-        for item in tqdm(steam_library, desc='Getting Steam Library'):
+        for item in tqdm(steam_items, desc='Getting Steam Library'):
             game_steam_ids = [game.steam_id for game in games]
             if item['steam_id'] not in game_steam_ids:
                 game = Game(
@@ -93,10 +93,10 @@ def get_data(config):
                 logger.debug(f'Steam Library => Pulled {game}')
 
     # Get Steam Wishlist
-    steam_wishlist = steam_client.get_steam_wishlist()
-    logger.info(f'{len(steam_wishlist)} games found in Steam wishlist')
+    steam_items = steam_client.get_steam_wishlist()
+    logger.info(f'{len(steam_items)} games found in Steam wishlist')
     with logging_redirect_tqdm(loggers=[logging.getLogger('vgr')]):
-        for item in tqdm(steam_wishlist, desc='Getting Steam Wishlist'):
+        for item in tqdm(steam_items, desc='Getting Steam Wishlist'):
             game_steam_ids = [game.steam_id for game in games]
             if item['steam_id'] not in game_steam_ids:
                 game = Game(
@@ -110,6 +110,44 @@ def get_data(config):
                 with open(cache_path, 'wb') as file:
                     pickle.dump(games, file)
                 logger.debug(f'Steam Wishlist => Pulled {game}')
+
+    # Popular New Releases
+    steam_items = steam_client.get_steam_search_page('https://store.steampowered.com/search/?filter=popularnew&sort_by=Released_DESC&os=win')
+    logger.info(f'{len(steam_items)} games found in Steam Popular New Releases')
+    with logging_redirect_tqdm(loggers=[logging.getLogger('vgr')]):
+        for item in tqdm(steam_items, desc='Getting Steam Popular New Releases'):
+            game_steam_ids = [game.steam_id for game in games]
+            if item['steam_id'] not in game_steam_ids:
+                game = Game(
+                    igdb_client,
+                    steam_client,
+                    name=item['name'],
+                    steam_id=item['steam_id']
+                )
+                games.append(game)
+                # FIXME: Probably shouldn't be writing after every game, but fuck it. 
+                with open(cache_path, 'wb') as file:
+                    pickle.dump(games, file)
+                logger.debug(f'Steam Popular New Releases => Pulled {game}')
+
+    # Top Sellers
+    steam_items = steam_client.get_steam_search_page('https://store.steampowered.com/search/?filter=topsellers&os=win')
+    logger.info(f'{len(steam_items)} games found in Steam Top Sellers')
+    with logging_redirect_tqdm(loggers=[logging.getLogger('vgr')]):
+        for item in tqdm(steam_items, desc='Getting Steam Top Sellers'):
+            game_steam_ids = [game.steam_id for game in games]
+            if item['steam_id'] not in game_steam_ids:
+                game = Game(
+                    igdb_client,
+                    steam_client,
+                    name=item['name'],
+                    steam_id=item['steam_id']
+                )
+                games.append(game)
+                # FIXME: Probably shouldn't be writing after every game, but fuck it. 
+                with open(cache_path, 'wb') as file:
+                    pickle.dump(games, file)
+                logger.debug(f'Steam Top Sellers => Pulled {game}')
 
     # =========================================================================
     # IGDB
@@ -192,6 +230,7 @@ def process_data(df):
 
     ### Coalesce Cols
     # Rating
+    # TODO: Should normalize before weighting
     df['igdb_critics_rating_weight'] = (df['igdb_critics_rating_count'] / (df['igdb_critics_rating_count'] + df['igdb_user_rating_count'])).fillna(0)
     df['igdb_user_rating_weight'] = (df['igdb_user_rating_count'] / (df['igdb_critics_rating_count'] + df['igdb_user_rating_count'])).fillna(0)
     df['igdb_weighted_rating'] = ((df['igdb_critics_rating'] * df['igdb_critics_rating_weight']) + (df['igdb_user_rating'] * df['igdb_user_rating_weight']))
