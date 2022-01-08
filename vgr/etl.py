@@ -1,4 +1,3 @@
-import inspect
 import json
 import logging
 import math
@@ -9,7 +8,6 @@ import time
 
 import numpy as np
 import pandas as pd
-from rich import print
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 from sentence_transformers import SentenceTransformer

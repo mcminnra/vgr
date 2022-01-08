@@ -3,13 +3,9 @@
 from datetime import date
 import logging
 import pathlib
-import pickle
 
-from hyperopt import fmin, hp, tpe, atpe, Trials, STATUS_OK
+from hyperopt import fmin, hp, atpe, Trials, STATUS_OK
 import numpy as np
-import pandas as pd
-from rich import print
-from rich.console import Console
 from sklearn import metrics
 from sklearn.decomposition import PCA
 from sklearn.model_selection import cross_val_score
@@ -20,7 +16,6 @@ from etl import get_data, process_data
 
 # Globals
 today = date.today()
-console = Console()
 
 # Logging
 class CustomFormatter(logging.Formatter):
