@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from datetime import date
+import logging
 import pathlib
 import pickle
 
@@ -21,7 +22,37 @@ from etl import get_data, process_data
 today = date.today()
 console = Console()
 
-# Load config
+# Logging
+class CustomFormatter(logging.Formatter):
+
+    grey = "\x1b[38;20m"
+    yellow = "\x1b[33;20m"
+    red = "\x1b[31;20m"
+    bold_red = "\x1b[31;1m"
+    reset = "\x1b[0m"
+    format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
+
+    FORMATS = {
+        logging.DEBUG: grey + format + reset,
+        logging.INFO: grey + format + reset,
+        logging.WARNING: yellow + format + reset,
+        logging.ERROR: red + format + reset,
+        logging.CRITICAL: bold_red + format + reset
+    }
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(log_fmt)
+        return formatter.format(record)
+
+logger = logging.getLogger('vgr')
+logger.setLevel(logging.DEBUG)
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+ch.setFormatter(CustomFormatter())
+logger.addHandler(ch)
+
+# Config
 with open(str(pathlib.Path(__file__).parent.parent.absolute()) + '/config.yml', "r") as stream:
     try:
         config = yaml.safe_load(stream)
@@ -33,16 +64,19 @@ if __name__ == '__main__':
     # ==============================================================================================
     # Get Data
     # ==============================================================================================
+    logger.debug('Starting get_data()')
     df = get_data(config)
 
     # ==============================================================================================
     # Data processing and Feature Engineering
     # ==============================================================================================
+    logger.debug('Starting process_data()')
     df = process_data(df)
 
     # ==============================================================================================
     # Model Training
     # ==============================================================================================
+    logger.debug('Starting model training')
     print('\n=== Model ===')
     rating_idx = df['personal_rating'].notnull()
     df_train = df[rating_idx]

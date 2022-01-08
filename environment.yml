@@ -1,4 +1,4 @@
-name: sgr
+name: vgr
 channels:
   - defaults
   - conda-forge
@@ -17,6 +17,7 @@ dependencies:
   - rich
   - scikit-learn
   - shap
+  - tenacity
   - tqdm
   - pip
   - pip:

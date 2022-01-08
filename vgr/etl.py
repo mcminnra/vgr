@@ -1,95 +1,119 @@
-import json
 import inspect
+import json
+import logging
 import math
 import os
 import pathlib
 import pickle
 import time
 
-from igdb.wrapper import IGDBWrapper
 import numpy as np
 import pandas as pd
 from rich import print
 from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 from sentence_transformers import SentenceTransformer
 
 from game import Game
 from igdb_client import IGDBClient
-from steamapi import get_steam_library, get_steam_wishlist
+from steam_client import SteamClient
+
+
+# Logging
+logger = logging.getLogger('vgr.etl')
+
 
 # Globals
 base_path = str(pathlib.Path(__file__).parent.parent.absolute())
 tqdm.pandas()
 
-# Replace print with tqdm.write
-old_print = print
-def new_print(*args, **kwargs):
-    try:
-        tqdm.write(*args, **kwargs)
-    except:
-        old_print(*args, **kwargs)
-# globaly replace print with new_print
-inspect.builtins.print = new_print
-
 
 def get_data(config):
     igdb_client = IGDBClient(config['igdb_client_id'], config['igdb_client_secret'])
+    steam_client = SteamClient(config['steam_url_name'], config['steam_user_id'])
 
     # Load cache if exists
     cache_path = base_path + '/data/cache.pkl'
     if os.path.isfile(cache_path):
-        print(f'Loaded cache at => {cache_path}')
         with open(cache_path, 'rb') as file:
             games = pickle.load(file)
+        logger.debug(f'Loaded cache from {cache_path}')
     else:
         games = []
+        logger.debug(f'No cache found.')
 
+    # =========================================================================
+    # Reviews File
+    # =========================================================================
     # Get Reviews File
     df = pd.read_excel(config['reviews_filepath']).replace({np.nan: None})
-    for _, row in tqdm(df.iterrows(), desc='Getting Review File'):
-        game_igdb_ids = [game.igdb_id for game in games]
-        if row['IGDB ID'] not in game_igdb_ids:
-            game = Game(
-                igdb_client,
-                name=row['Name'],
-                igdb_id=row['IGDB ID'],
-                steam_id=row['Steam ID'],
-                personal_rating=row['Rating']
-            )
-            games.append(game)
-            # FIXME: Probably shouldn't we writing after every game, but fuck it. 
-            with open(cache_path, 'wb') as file:
-                pickle.dump(games, file)
+    logger.info(f'{df.shape[0]} games found in review file')
+    with logging_redirect_tqdm(loggers=[logging.getLogger('vgr')]):
+        for _, row in tqdm(df.iterrows(), desc='Getting Review File'):
+            # FIXME: Quick hack to convert to int
+            row['IGDB ID'] = int(row['IGDB ID']) if row['IGDB ID'] else None
+            row['Steam ID'] = int(row['Steam ID']) if row['Steam ID'] else None
 
-    ### Steam
+            game_igdb_ids = [game.igdb_id for game in games]
+            if row['IGDB ID'] not in game_igdb_ids:
+                game = Game(
+                    igdb_client,
+                    steam_client,
+                    name=row['Name'],
+                    igdb_id=row['IGDB ID'],
+                    steam_id=row['Steam ID'],
+                    personal_rating=row['Rating']
+                )
+                games.append(game)
+                # FIXME: Probably shouldn't we writing after every game, but fuck it. 
+                with open(cache_path, 'wb') as file:
+                    pickle.dump(games, file)
+                logger.debug(f'Reviews => Pulled {game}')
+
+    # =========================================================================
+    # Steam
+    # =========================================================================
     # Get Steam Library
-    for item in tqdm(get_steam_library(config['steam_url_name']), desc='Getting Steam Library'):
-        game_steam_ids = [game.steam_id for game in games]
-        if item['steam_id'] not in game_steam_ids:
-            game = Game(
-                igdb_client,
-                name=item['name'],
-                steam_id=item['steam_id'],
-            )
-            games.append(game)
-            # FIXME: Probably shouldn't we writing after every game, but fuck it. 
-            with open(cache_path, 'wb') as file:
-                pickle.dump(games, file)
+    steam_library = steam_client.get_steam_library()
+    logger.info(f'{len(steam_library)} games found in Steam library')
+    with logging_redirect_tqdm(loggers=[logging.getLogger('vgr')]):
+        for item in tqdm(steam_library, desc='Getting Steam Library'):
+            game_steam_ids = [game.steam_id for game in games]
+            if item['steam_id'] not in game_steam_ids:
+                game = Game(
+                    igdb_client,
+                    steam_client,
+                    name=item['name'],
+                    steam_id=item['steam_id'],
+                )
+                games.append(game)
+                # FIXME: Probably shouldn't we writing after every game, but fuck it. 
+                with open(cache_path, 'wb') as file:
+                    pickle.dump(games, file)
+                logger.debug(f'Steam Library => Pulled {game}')
 
     # Get Steam Wishlist
-    for item in tqdm(get_steam_wishlist(config['steam_user_id']), desc='Getting Steam Wishlist'):
-        game_steam_ids = [game.steam_id for game in games]
-        if item['steam_id'] not in game_steam_ids:
-            game = Game(
-                igdb_client,
-                name=item['name'],
-                steam_id=item['steam_id']
-            )
-            games.append(game)
-            # FIXME: Probably shouldn't be writing after every game, but fuck it. 
-            with open(cache_path, 'wb') as file:
-                pickle.dump(games, file)
+    steam_wishlist = steam_client.get_steam_wishlist()
+    logger.info(f'{len(steam_wishlist)} games found in Steam wishlist')
+    with logging_redirect_tqdm(loggers=[logging.getLogger('vgr')]):
+        for item in tqdm(steam_wishlist, desc='Getting Steam Wishlist'):
+            game_steam_ids = [game.steam_id for game in games]
+            if item['steam_id'] not in game_steam_ids:
+                game = Game(
+                    igdb_client,
+                    steam_client,
+                    name=item['name'],
+                    steam_id=item['steam_id']
+                )
+                games.append(game)
+                # FIXME: Probably shouldn't be writing after every game, but fuck it. 
+                with open(cache_path, 'wb') as file:
+                    pickle.dump(games, file)
+                logger.debug(f'Steam Wishlist => Pulled {game}')
 
+    # =========================================================================
+    # IGDB
+    # =========================================================================
     ### IGDB Top 100
     # Pulling for all platforms
     byte_array = igdb_client._igdb_wrapper.api_request(
@@ -106,25 +130,29 @@ def get_data(config):
         time.sleep(0.25)
         games_response = json.loads(byte_array)
         if not games_response:
-            print(f'No rated games found for {platform["name"]}. Skipping...')
+            logger.debug(f'No rated games found for {platform["name"]}.')
             continue
-        for game in tqdm(games_response, desc=f'[{i+1}/{len(platforms_response)}] Getting IGDB {platform["name"]} Top 100'):
-            game_igdb_ids = [game.igdb_id for game in games]
-            if game['id'] not in game_igdb_ids:
-                game = Game(
-                    igdb_client,
-                    name=game['name'],
-                    igdb_id=game['id'],
-                )
-                games.append(game)
-                # FIXME: Probably shouldn't we writing after every game, but fuck it. 
-                with open(cache_path, 'wb') as file:
-                    pickle.dump(games, file)
+        with logging_redirect_tqdm(loggers=[logging.getLogger('vgr')]):
+            for game in tqdm(games_response, desc=f'[{i+1}/{len(platforms_response)}] Getting IGDB {platform["name"]} Top 100'):
+                game_igdb_ids = [game.igdb_id for game in games]
+                if game['id'] not in game_igdb_ids:
+                    game = Game(
+                        igdb_client,
+                        steam_client,
+                        name=game['name'],
+                        igdb_id=game['id'],
+                    )
+                    games.append(game)
+                    # FIXME: Probably shouldn't we writing after every game, but fuck it. 
+                    with open(cache_path, 'wb') as file:
+                        pickle.dump(games, file)
+                    logger.debug(f'IGDB Top 100 ({platform["name"]}) => Pulled {game}')
 
     # Convert to df
     df = pd.concat([game.to_series() for game in games], axis=1, ignore_index=True).T
     data_path = base_path + '/data/data.csv'
     df.to_csv(data_path, index=False)
+    logger.debug(f'Wrote data to {data_path}')
     print(df)
 
     return df

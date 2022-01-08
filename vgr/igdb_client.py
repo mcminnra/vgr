@@ -1,11 +1,16 @@
+from functools import wraps
 import json
 import pathlib
-import requests
 import time
 
 from igdb.wrapper import IGDBWrapper
+import requests
+from tenacity import retry, stop_after_attempt, wait_fixed
 
+
+# Globals
 BASE_PATH = pathlib.Path(__file__).parent.parent.absolute()
+
 
 class IGDBClient():
     """Client class to provide specific api functions to IGDB Wrapper"""
@@ -37,6 +42,7 @@ class IGDBClient():
 
         return access_json['access_token'] 
 
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(5))
     def get_igdb_id_by_name(self, name: str) -> int:
         """
         Get IGDB ID by searching a name
@@ -48,12 +54,13 @@ class IGDBClient():
             f'search "{search_input_name}"; fields *; where category != (5, 6, 7);'  # No mods, episodes, or seasons
         )
         games_response = json.loads(byte_array)
-        igdb_id = games_response[0]['id']
+        igdb_id = int(games_response[0]['id'])
 
         time.sleep(.25) # sleep to not go over request limit
 
         return igdb_id
 
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(5))
     def get_igdb_id_by_steam_id(self, steam_id: int) -> int:
         """
         Get IGDB ID using Steam ID
@@ -82,14 +89,15 @@ class IGDBClient():
                     game['first_release_date'] = int(time.time())
                 game['first_release_date'] *= -1
 
-            igdb_id = sorted(games_response, key=lambda x: (x['total_rating_count'], x['first_release_date']), reverse=True)[0]['id']
+            igdb_id = int(sorted(games_response, key=lambda x: (x['total_rating_count'], x['first_release_date']), reverse=True)[0]['id'])
         elif len(websites_response) == 1:
-            igdb_id = websites_response[0]['game']
+            igdb_id = int(websites_response[0]['game'])
 
         time.sleep(.5) # sleep to not go over request limit
 
         return igdb_id
 
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(5))
     def get_steam_id_by_igdb_id(self, igdb_id: int) -> int:
         """
         Get Steam ID using IGDB ID
@@ -110,6 +118,7 @@ class IGDBClient():
         
         return steam_id
 
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(5))
     def get_game(self, igdb_id: int) -> dict:
         """
         Get game metadata from IGDB ID
@@ -125,6 +134,7 @@ class IGDBClient():
 
         return igdb_metadata
 
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(5))
     def get_genres_by_genre_ids(self, genre_ids: list[int]) -> list[str]:
         """
         Get genre names using IGDB Genre IDs
@@ -141,6 +151,7 @@ class IGDBClient():
 
         return genres
 
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(5))
     def get_keywords_by_keyword_ids(self, keyword_ids: list[int]) -> list[str]:
         """
         Get keyword names using IGDB keyword IDs
@@ -157,6 +168,7 @@ class IGDBClient():
 
         return keywords
 
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(5))
     def get_themes_by_theme_ids(self, theme_ids: list[int]) -> list[str]: 
         """
         Get theme names using IGDB theme IDs

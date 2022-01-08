@@ -1,12 +1,9 @@
 
 from enum import Enum
-import json
-import requests
+import logging
 import time
 
 import pandas as pd
-
-from steamapi import get_steam_store_html, get_name_from_html, get_reviews_from_html, get_short_desc_from_html, get_tags_from_html
 
 
 class IGDBGameCategory(Enum):
@@ -40,9 +37,12 @@ class Game:
     """
     Class to resolve various client ids to an IGDM entry and collect metadata from multiple sources.
     """
-    def __init__(self, igdb_client, name, igdb_id=None, steam_id=None, personal_rating=None):        
+    def __init__(self, igdb_client, steam_client, name, igdb_id=None, steam_id=None, personal_rating=None):   
+        self._logger = logging.getLogger(f'vgr."{name}"')
+
         # Clients
         self._igdb_client = igdb_client
+        self._steam_client = steam_client
 
         # IDs
         self.input_name = name
@@ -64,6 +64,8 @@ class Game:
         if self.steam_id:
             self._resolve_steam_metadata()
 
+        
+
     def __str__(self):
         return f'{self.input_name} (IGDB: {self.igdb_id}, Steam: {self.steam_id})'
 
@@ -84,8 +86,11 @@ class Game:
             self.steam_id = self._igdb_client.get_steam_id_by_igdb_id(self.igdb_id)
         elif not self.igdb_id and self.steam_id:  # Only Steam ID set. Pull IGDB ID from games that use the Steam ID website link.
             self.igdb_id = self._igdb_client.get_igdb_id_by_steam_id(self.steam_id)
-        else:  # Keys already set.
-            pass  # May log something here in the future
+
+        if not self.steam_id:
+            self._logger.warn('Unable to resolve Steam ID')
+        if not self.igdb_id:
+            self._logger.warn('Unable to resolve IGDB ID')
 
     def _resolve_igdb_metadata(self):
         igdb_metadata = self._igdb_client.get_game(self.igdb_id)
@@ -112,15 +117,15 @@ class Game:
         self.igdb_metadata['igdb_themes'] = self._igdb_client.get_themes_by_theme_ids(igdb_metadata["themes"]) if 'themes' in igdb_metadata else None
        
     def _resolve_steam_metadata(self):
-        steam_store_tree = get_steam_store_html(self.steam_id)
+        steam_store_tree = self._steam_client.get_steam_store_html(self.steam_id)
 
         try:
-            self.steam_metadata['steam_name'] = get_name_from_html(steam_store_tree)
-            self.steam_metadata['steam_recent_percent'], self.steam_metadata['steam_recent_count'], self.steam_metadata['steam_all_percent'], self.steam_metadata['steam_all_count'] = get_reviews_from_html(steam_store_tree)
-            self.steam_metadata['steam_short_desc'] = get_short_desc_from_html(steam_store_tree)
-            self.steam_metadata['steam_tags'] = get_tags_from_html(steam_store_tree)
+            self.steam_metadata['steam_name'] = self._steam_client.get_name_from_html(steam_store_tree)
+            self.steam_metadata['steam_recent_percent'], self.steam_metadata['steam_recent_count'], self.steam_metadata['steam_all_percent'], self.steam_metadata['steam_all_count'] = self._steam_client.get_reviews_from_html(steam_store_tree)
+            self.steam_metadata['steam_short_desc'] = self._steam_client.get_short_desc_from_html(steam_store_tree)
+            self.steam_metadata['steam_tags'] = self._steam_client.get_tags_from_html(steam_store_tree)
         except Exception as e:
-            print(f'Failed pulling Steam metadata for {self.input_name} - Does https://store.steampowered.com/app/{self.steam_id} exist?')
+            self._logger.error(f'Failed pulling Steam metadata for {self.input_name} - Does https://store.steampowered.com/app/{self.steam_id} exist?')
 
         time.sleep(.6)
 
