@@ -213,9 +213,7 @@ def process_data(df):
     df = df[df['igdb_category'] != 'dlc_addon']
 
     # Fill na
-    df['igdb_critics_rating'] = df['igdb_critics_rating'].fillna(0).round(0).astype(int)
     df['igdb_user_rating'] = df['igdb_user_rating'].fillna(0).round(0).astype(int)
-    df['igdb_critics_rating_count'] = df['igdb_critics_rating_count'].fillna(0).round(0).astype(int)
     df['igdb_user_rating_count'] = df['igdb_user_rating_count'].fillna(0).round(0).astype(int)
 
     df['igdb_summary'] = df['igdb_summary'].fillna('')
@@ -228,17 +226,12 @@ def process_data(df):
 
     ### Coalesce Cols
     # Rating
-    # TODO: Should normalize before weighting
-    df['igdb_critics_rating_weight'] = (df['igdb_critics_rating_count'] / (df['igdb_critics_rating_count'] + df['igdb_user_rating_count'])).fillna(0)
-    df['igdb_user_rating_weight'] = (df['igdb_user_rating_count'] / (df['igdb_critics_rating_count'] + df['igdb_user_rating_count'])).fillna(0)
-    df['igdb_weighted_rating'] = ((df['igdb_critics_rating'] * df['igdb_critics_rating_weight']) + (df['igdb_user_rating'] * df['igdb_user_rating_weight']))
-
-    df['rating'] = df['steam_all_percent'].fillna(df['igdb_weighted_rating']).round(0).astype(int)
+    # TODO: Should normalize
+    df['rating'] = df['steam_all_percent'].fillna(df['igdb_user_rating']).round(0).astype(int)
 
     # Popularity
-    df['igdb_rating_count_perc'] = (df['igdb_critics_rating_count'] + df['igdb_user_rating_count']).rank(pct=True)
+    df['igdb_rating_count_perc'] = df['igdb_user_rating_count'].rank(pct=True)
     df['steam_all_count_perc'] = df['steam_all_count'].rank(pct=True)
-
     df['popularity'] = df['steam_all_count_perc'].fillna(df['igdb_rating_count_perc']).round(2).astype(float)
 
     # Tags
