@@ -150,13 +150,8 @@ if __name__ == '__main__':
     model.fit(X_train_pca, y_train)
 
     y_hat = model.predict(X_train_pca)
-    print(f'MSE: {metrics.mean_squared_error(y_train, y_hat)}')
-    print(f'R2: {metrics.r2_score(y_train, y_hat)}')
-
-    # metrics = ['neg_mean_squared_error', 'r2']
-    # for metric in metrics:
-    #     scores = cross_val_score(model, X_train_pca, y_train, scoring=metric, cv=5)
-    #     print(f'Avg. \'{metric}\': {scores.mean():0.4f} (+/- {scores.std():0.4f})')
+    scores = cross_val_score(model, X_train_pca, y_train, scoring='neg_mean_squared_error', cv=5)
+    print(f'Avg. MSE: {scores.mean()*-1:0.4f} (+/- {scores.std():0.4f})')
 
     # Predict
     y_pred = model.predict(pca.transform(X_pred))

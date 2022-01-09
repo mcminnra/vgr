@@ -205,14 +205,16 @@ def process_data(df):
             'igdb_name',
             'igdb_status',
             'igdb_first_release_date',
-            'igdb_keywords',
             'steam_name'
         ], axis=1)
 
-    # Filters
+    # =========================================================================
+    # Data Clean
+    # =========================================================================
+    ### Filters
     df = df[df['igdb_category'] != 'dlc_addon']
 
-    # Fill na
+    ### Fill na
     df['igdb_user_rating'] = df['igdb_user_rating'].fillna(0).round(0).astype(int)
     df['igdb_user_rating_count'] = df['igdb_user_rating_count'].fillna(0).round(0).astype(int)
 
@@ -221,29 +223,74 @@ def process_data(df):
     df['steam_short_desc'] = df['steam_short_desc'].fillna('')
 
     df['igdb_genres'] = df['igdb_genres'].apply(lambda d: d if isinstance(d, list) else [])
+    df['igdb_keywords'] = df['igdb_keywords'].apply(lambda d: d if isinstance(d, list) else [])
     df['igdb_themes'] = df['igdb_themes'].apply(lambda d: d if isinstance(d, list) else [])
     df['steam_tags'] = df['steam_tags'].apply(lambda d: d if isinstance(d, list) else [])
 
-    ### Coalesce Cols
-    # Rating
+    # =========================================================================
+    # Coalesce Cols
+    # =========================================================================
+    ### Rating
     # TODO: Should normalize
     df['rating'] = df['steam_all_percent'].fillna(df['igdb_user_rating']).round(0).astype(int)
 
-    # Popularity
+    ### Popularity
     df['igdb_rating_count_perc'] = df['igdb_user_rating_count'].rank(pct=True)
     df['steam_all_count_perc'] = df['steam_all_count'].rank(pct=True)
     df['popularity'] = df['steam_all_count_perc'].fillna(df['igdb_rating_count_perc']).round(2).astype(float)
 
-    # Tags
-    df['tags'] = df['igdb_genres'] + df['igdb_themes'] + df['steam_tags']
+    ### Tags
+    df['tags'] = df['igdb_genres'] + df['igdb_keywords'] + df['igdb_themes'] + df['steam_tags']
+    df['tags'] = df['tags'].apply(lambda X: list(set([x.lower().replace('/', ' ').replace('(', '').replace(')', '').replace('\'', '') for x in X])))
 
-    # Text
+    # Handcraft some "meta" tags
+    UNIQUE_TAGS = sorted(list(set([tag for row in df['tags'].tolist() if row for tag in row])), reverse=False)
+    meta_tags = {
+        'meta_action': [tag for tag in UNIQUE_TAGS if 'action' in tag],
+        'meta_adventure': [tag for tag in UNIQUE_TAGS if 'adventure' in tag],
+        'meta_first_person': [tag for tag in UNIQUE_TAGS if 'first-person' in tag or 'first person' in tag],
+        'meta_indie': [tag for tag in UNIQUE_TAGS if 'indie' in tag],
+        'meta_music': [tag for tag in UNIQUE_TAGS if 'music' in tag],
+        'meta_platformer': [tag for tag in UNIQUE_TAGS if 'platformer' in tag],
+        'meta_puzzle': [tag for tag in UNIQUE_TAGS if 'puzzle' in tag],
+        'meta_roguelike': [tag for tag in UNIQUE_TAGS if 'roguelike' in tag or 'rogue-like' in tag or 'roguelite' in tag or 'rogue-lite' in tag],
+        'meta_rpg': [tag for tag in UNIQUE_TAGS if 'rpg' in tag or 'role playing' in tag or 'role-playing' in tag],
+        'meta_rts': [tag for tag in UNIQUE_TAGS if 'rts' in tag],
+        'meta_scifi': [tag for tag in UNIQUE_TAGS if 'sci-fi' in tag or 'science fiction' in tag],
+        'meta_shooter': [tag for tag in UNIQUE_TAGS if 'shooter' in tag or 'fps' in tag],
+        'meta_simulation': [tag for tag in UNIQUE_TAGS if 'simulation' in tag or 'simulator' in tag],
+        'meta_space': [tag for tag in UNIQUE_TAGS if 'space' in tag],
+        'meta_sports': [tag for tag in UNIQUE_TAGS if 'sport' in tag],
+        'meta_strategy': [tag for tag in UNIQUE_TAGS if 'strategy' in tag],
+        'meta_third_person': [tag for tag in UNIQUE_TAGS if 'third-person' in tag or 'third person' in tag],
+        'meta_turn_based': [tag for tag in UNIQUE_TAGS if 'turn-based' in tag or 'turn based' in tag]
+    }
+    for idx, row in df.iterrows():
+        for meta_tag in meta_tags.keys():
+            if list(set(row['tags']) & set(meta_tags[meta_tag])):
+                df.at[idx, 'tags'] += [meta_tag]
+
+    # Count Tags
+    # tag_count = {}
+    # for _, row in df.iterrows():
+    #     for tag in row['tags']:
+    #         if tag in tag_count:
+    #             tag_count[tag] += 1
+    #         else:
+    #             tag_count[tag] = 1
+
+    # for k, v in sorted(tag_count.items(), key=lambda item: item[0]):
+    #     print(k, v)
+    
+    ### Text
     df['text'] = df['igdb_summary'] + df['igdb_storyline'] + df['steam_short_desc']
 
     df = df[['input_name', 'igdb_id', 'steam_id', 'personal_rating', 'rating', 'popularity', 'tags', 'text']]
 
-    ### Feature Engineering
-    # Explode tags
+    # =========================================================================
+    # Feature Engineering
+    # =========================================================================
+    ### Explode tags
     def explode_log(df, explode_col):
         df_tags = df[[explode_col]]
         UNIQUE_TAGS = sorted(list(set([tag for row in df_tags[explode_col].tolist() if row for tag in row])), reverse=False)
@@ -276,7 +323,7 @@ def process_data(df):
 
     df = df.merge(explode_binary(df, 'tags'), how='inner', right_index=True, left_index=True, suffixes=(None, None)).drop(['tags'], axis=1).drop_duplicates()
 
-    # Embeddings
+    ### Embeddings
     model = SentenceTransformer('all-mpnet-base-v2')
     model.max_seq_length = 500
 
@@ -291,141 +338,9 @@ def process_data(df):
     rename_cols = {col: f'feat_{col}' for col in df.columns if col not in ignore_cols}
     df.rename(columns=rename_cols, inplace=True)
 
-    ### Write out processed for debugging
-    processed_path = base_path + '/data/processed.csv'
-    df.to_csv(processed_path, index=False)
-
-    print(df)
-
-    return df
-
-
-def old_process_data(df):
-    """
-    Process data and do some feature engineering
-
-    Note: prefix "feat_" is columns used for training
-    """
-    # Filter to found IGDB Games
-    df = df[df['igdb_id'].notnull()].set_index('igdb_id').replace({np.nan: None})
-
-    ### Clean Data
-    # Drop unneeded cols
-    df = df.drop([
-            'igdb_name',
-            'igdb_status',
-            'igdb_first_release_date',
-            'igdb_keywords',
-            'steam_name'
-        ], axis=1)
-
-    # Description
-    df['igdb_summary'] = df['igdb_summary'].fillna('')
-    df['igdb_storyline'] = df['igdb_storyline'].fillna('')
-    df['steam_short_desc'] = df['steam_short_desc'].fillna('')
-
-    # Ratings
-    df['igdb_critics_rating'] = df['igdb_critics_rating'].fillna(df['igdb_critics_rating'].mean()).round(0).astype(int)
-    df['igdb_critics_rating_count'] = df['igdb_critics_rating_count'].fillna(0).round(0).astype(int)
-    df['igdb_user_rating'] = df['igdb_user_rating'].fillna(df['igdb_user_rating'].mean()).round(0).astype(int)
-    df['igdb_user_rating_count'] = df['igdb_user_rating_count'].fillna(0).round(0).astype(int)
-    df['steam_recent_percent'] = df['steam_recent_percent'].fillna(df['steam_recent_percent'].mean()).round(0).astype(int)
-    df['steam_recent_count'] = df['steam_recent_count'].fillna(df['steam_recent_count'].mean()).round(0).astype(int)
-    df['steam_all_percent'] = df['steam_all_percent'].fillna(df['steam_all_percent'].mean()).round(0).astype(int)
-    df['steam_all_count'] = df['steam_all_count'].fillna(df['steam_all_count'].mean()).round(0).astype(int)
-
-    # Tags
-    tag_replace = lambda item: item.replace(' ', '_').replace('-', '_').replace('\'', '').replace('/', '_').replace('.', 'point').replace('&', 'and')
-    df['igdb_genres'] = df['igdb_genres'].apply(lambda row: [tag_replace(item) for item in row] if row else None)
-    df['igdb_themes'] = df['igdb_themes'].apply(lambda row: [tag_replace(item) for item in row] if row else None)
-    df['steam_tags'] = df['steam_tags'].apply(lambda row: [tag_replace(item) for item in row] if row else None)
-
-    ### Feature Engineering
-    # Convert to categorical to numeric labels
-    df['igdb_category'] = df['igdb_category'].astype('category').cat.codes
-
-    # Create combined desc column
-    df['desc'] = df['igdb_summary'] + df['igdb_storyline'] + df['steam_short_desc']
-    df = df.drop(['igdb_summary', 'igdb_storyline', 'steam_short_desc'], axis=1)
-
-    # explode tags
-    def explode_log(df, explode_col):
-        df_tags = df[[explode_col]]
-        UNIQUE_TAGS = sorted(list(set([tag for row in df_tags[explode_col].tolist() if row for tag in row])), reverse=False)
-        df_tags[[f'{explode_col}_{tag}' for tag in UNIQUE_TAGS]] = 0
-
-        # Map tag postion importance to column
-        for row_idx, row in df_tags.iterrows():
-            if row[explode_col]:
-                tags_len = len(row[explode_col])
-                for tag_idx, tag in enumerate(row[explode_col]):
-                    if tags_len == 1:
-                        df_tags.at[row_idx, f'{explode_col}_{tag}'] = 1
-                    else:
-                        df_tags.at[row_idx, f'{explode_col}_{tag}'] = math.log(tags_len-tag_idx, tags_len)  # Logarithmic importance
-        df_tags = df_tags.drop([explode_col], axis=1)
-        return df_tags
-
-    def explode_binary(df, explode_col):
-        df_tags = df[[explode_col]]
-        UNIQUE_TAGS = sorted(list(set([tag for row in df_tags[explode_col].tolist() if row for tag in row])), reverse=False)
-        df_tags[[f'{explode_col}_{tag}' for tag in UNIQUE_TAGS]] = 0
-
-        # Map tag postion importance to column
-        for row_idx, row in df_tags.iterrows():
-            if row[explode_col]:
-                for tag in row[explode_col]:
-                    df_tags.at[row_idx, f'{explode_col}_{tag}'] = 1
-        df_tags = df_tags.drop([explode_col], axis=1)
-        return df_tags
-
-    df = df.merge(explode_binary(df, 'igdb_genres'), how='inner', right_index=True, left_index=True, suffixes=(None, None)).drop(['igdb_genres'], axis=1)
-    df = df.merge(explode_binary(df, 'igdb_themes'), how='inner', right_index=True, left_index=True, suffixes=(None, None)).drop(['igdb_themes'], axis=1)
-    df = df.merge(explode_log(df, 'steam_tags'), how='inner', right_index=True, left_index=True, suffixes=(None, None)).drop(['steam_tags'], axis=1)
-    
-    # FIXME: Tag function generating duplicates for some tags for reasons that escape me. Quick fix to just remove them after.
-    df = df.drop_duplicates()
-
-    # Embeddings
-    model = SentenceTransformer('all-mpnet-base-v2')
-    model.max_seq_length = 500
-
-    df['emb_desc'] = df['desc'].progress_apply(lambda x: np.mean([model.encode(sentence) for sentence in x.split('. ')], axis=0))
-    emb_len = df['emb_desc'].values[0].shape[0]
-    emb_cols = [f'emb_desc_{i}' for i in range(0, emb_len)]
-    df[emb_cols] = pd.DataFrame(df['emb_desc'].tolist(), index=df.index)
-    df = df.drop(['desc', 'emb_desc'], axis=1)
-
-    # # Feature Transforms
-    # numerical_cols = [
-    #     'igdb_critics_rating',
-    #     'igdb_critics_rating_count',
-    #     'igdb_user_rating',
-    #     'igdb_user_rating_count',
-    #     'steam_recent_percent',
-    #     'steam_recent_count',
-    #     'steam_all_percent',
-    #     'steam_all_count'
-    # ]
-    # normalize_cols = []
-    # for col in numerical_cols:
-    #     df[f'{col}_log'] = np.log(df[f'{col}'])
-    #     df[f'{col}_pow'] = np.power(df[f'{col}'], 2)
-    #     df[f'{col}_recip'] = 1 / df[f'{col}']
-    #     df[f'{col}_sqrt'] = np.sqrt(df[f'{col}'])
-    #     normalize_cols += [col, f'{col}_log', f'{col}_pow', f'{col}_recip', f'{col}_sqrt']
-    # df = df.replace([np.inf, -np.inf], 0, inplace=True)
-
-    # ### Normalize
-    # normalize_cols = [col for col in df.columns if 'percent' in col or 'count' in col]
-    # for col in normalize_cols:
-    #     df[f'feat_norm_{col}']=((df[f'{col}']-df[f'{col}'].mean())/df[f'{col}'].std()).fillna(0)
-    # df = df.astype({f'{col}': float for col in df.columns if 'feat_norm_' in col})  # Convert to float because it gets changed for some reason
-
-    # Add "feat_" prefixes
-    ignore_cols = ['input_name', 'steam_id', 'personal_rating']
-    rename_cols = {col: f'feat_{col}' for col in df.columns if col not in ignore_cols}
-    df.rename(columns=rename_cols, inplace=True)
+    ### Post-filter
+    # NOTE: We mainly do this to remove games that haven't been released yet. These will have rating of 0 and will be overwhelmingly negatively rated
+    df = df[df['feat_rating'] > 0]
 
     ### Write out processed for debugging
     processed_path = base_path + '/data/processed.csv'
