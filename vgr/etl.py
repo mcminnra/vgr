@@ -241,7 +241,7 @@ def process_data(df):
 
     ### Tags
     df['tags'] = df['igdb_genres'] + df['igdb_keywords'] + df['igdb_themes'] + df['steam_tags']
-    df['tags'] = df['tags'].apply(lambda X: list(set([x.lower().replace('/', ' ').replace('(', '').replace(')', '').replace('\'', '') for x in X])))
+    df['tags'] = df['tags'].apply(lambda X: list(set([x.lower().replace('/', ' ').replace('(', '').replace(')', '').replace('\'', '').replace(',', '').replace('<', '').replace('>', '').replace(':', '').replace('[', '').replace(']', '') for x in X])))
 
     # Handcraft some "meta" tags
     UNIQUE_TAGS = sorted(list(set([tag for row in df['tags'].tolist() if row for tag in row])), reverse=False)
