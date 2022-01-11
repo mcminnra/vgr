@@ -1,2 +1,2 @@
-# SGR
-Steam Games Recommender using BERT
+# VGR
+Video Games Recommender using IGDB and Steam
