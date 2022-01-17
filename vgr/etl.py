@@ -52,8 +52,24 @@ def get_data(config):
             row['IGDB ID'] = int(row['IGDB ID']) if row['IGDB ID'] else None
             row['Steam ID'] = int(row['Steam ID']) if row['Steam ID'] else None
 
-            game_igdb_ids = [game.igdb_id for game in games]
-            if row['IGDB ID'] not in game_igdb_ids:
+            # Re-pull reviews data if rating different or not in games
+            if row['IGDB ID'] in games:
+                if row['Rating'] != games[games.index(row['IGDB ID'])].personal_rating:
+                    del games[games.index(row['IGDB ID'])]
+                    game = Game(
+                        igdb_client,
+                        steam_client,
+                        name=row['Name'],
+                        igdb_id=row['IGDB ID'],
+                        steam_id=row['Steam ID'],
+                        personal_rating=row['Rating']
+                    )
+                    games.append(game)
+                    # FIXME: Probably shouldn't we writing after every game, but fuck it. 
+                    with open(cache_path, 'wb') as file:
+                        pickle.dump(games, file)
+                    logger.debug(f'Reviews => Pulled {game}')
+            else:
                 game = Game(
                     igdb_client,
                     steam_client,

@@ -73,10 +73,14 @@ class Game:
         return f'{self.input_name} (IGDB: {self.igdb_id}, Steam: {self.steam_id})'
 
     def __eq__(self, other):
-        if self.igdb_id and other.igdb_id and self.igdb_id == other.igdb_id:
-            return True
-        else:
-            return False
+        if isinstance(other, int):
+            if self.igdb_id and self.igdb_id == other:
+                return True
+        elif isinstance(other, Game):
+            if self.igdb_id and other.igdb_id and self.igdb_id == other.igdb_id:
+                return True
+        
+        return False
 
     def _resolve_ids(self):
         if not self.igdb_id and not self.steam_id:  # No ids set. Return best search from IGDB
