@@ -298,6 +298,7 @@ def process_data(df):
         # Style / Setting
         'meta_first_person': [tag for tag in UNIQUE_TAGS if 'first-person' in tag or 'first person' in tag],
         'meta_third_person': [tag for tag in UNIQUE_TAGS if 'third-person' in tag or 'third person' in tag],
+        'meta_vr': [tag for tag in UNIQUE_TAGS if 'vr ' in tag or 'virtual reality' in tag],
         'meta_2d': [tag for tag in UNIQUE_TAGS if '2d' in tag or '2.5d' in tag],
         'meta_3d': [tag for tag in UNIQUE_TAGS if '3d' in tag],
         'meta_aliens': [tag for tag in UNIQUE_TAGS if 'alien' in tag],
