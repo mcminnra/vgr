@@ -262,24 +262,63 @@ def process_data(df):
     # Handcraft some "meta" tags
     UNIQUE_TAGS = sorted(list(set([tag for row in df['tags'].tolist() if row for tag in row])), reverse=False)
     meta_tags = {
+        # Dev Size
+        'meta_indie': [tag for tag in UNIQUE_TAGS if 'indie' in tag],
+        # Genre / Gameplay
+        'meta_arcade': [tag for tag in UNIQUE_TAGS if 'arcade' in tag],
         'meta_action': [tag for tag in UNIQUE_TAGS if 'action' in tag],
         'meta_adventure': [tag for tag in UNIQUE_TAGS if 'adventure' in tag],
-        'meta_first_person': [tag for tag in UNIQUE_TAGS if 'first-person' in tag or 'first person' in tag],
-        'meta_indie': [tag for tag in UNIQUE_TAGS if 'indie' in tag],
+        'meta_building': [tag for tag in UNIQUE_TAGS if 'building' in tag],
+        'meta_casual': [tag for tag in UNIQUE_TAGS if 'casual' in tag],
+        'meta_coop': [tag for tag in UNIQUE_TAGS if 'co-op' in tag or 'coop' in tag or 'co op' in tag],
+        'meta_crafting': [tag for tag in UNIQUE_TAGS if 'crafting' in tag],
+        'meta_difficult': [tag for tag in UNIQUE_TAGS if 'difficult' in tag or 'hard' in tag],
+        'meta_exploration': [tag for tag in UNIQUE_TAGS if 'exploration' in tag],
+        'meta_fighting': [tag for tag in UNIQUE_TAGS if 'fighting' in tag],
+        'meta_hack_and_slash': [tag for tag in UNIQUE_TAGS if 'hack and slash' in tag or 'hack-and-slash' in tag],
+        'meta_management': [tag for tag in UNIQUE_TAGS if 'management' in tag],
         'meta_music': [tag for tag in UNIQUE_TAGS if 'music' in tag],
-        'meta_platformer': [tag for tag in UNIQUE_TAGS if 'platformer' in tag],
-        'meta_puzzle': [tag for tag in UNIQUE_TAGS if 'puzzle' in tag],
+        'meta_open_world': [tag for tag in UNIQUE_TAGS if 'open world' in tag or 'open-world' in tag],
+        'meta_racing': [tag for tag in UNIQUE_TAGS if 'racing' in tag],
         'meta_roguelike': [tag for tag in UNIQUE_TAGS if 'roguelike' in tag or 'rogue-like' in tag or 'roguelite' in tag or 'rogue-lite' in tag],
         'meta_rpg': [tag for tag in UNIQUE_TAGS if 'rpg' in tag or 'role playing' in tag or 'role-playing' in tag],
         'meta_rts': [tag for tag in UNIQUE_TAGS if 'rts' in tag],
-        'meta_scifi': [tag for tag in UNIQUE_TAGS if 'sci-fi' in tag or 'science fiction' in tag],
+        'meta_party': [tag for tag in UNIQUE_TAGS if 'party' in tag or 'minigames' in tag],
+        'meta_platformer': [tag for tag in UNIQUE_TAGS if 'platformer' in tag],
+        'meta_puzzle': [tag for tag in UNIQUE_TAGS if 'puzzle' in tag],
+        'meta_sandbox': [tag for tag in UNIQUE_TAGS if 'sandbox' in tag],
         'meta_shooter': [tag for tag in UNIQUE_TAGS if 'shooter' in tag or 'fps' in tag],
         'meta_simulation': [tag for tag in UNIQUE_TAGS if 'simulation' in tag or 'simulator' in tag],
-        'meta_space': [tag for tag in UNIQUE_TAGS if 'space' in tag],
         'meta_sports': [tag for tag in UNIQUE_TAGS if 'sport' in tag],
+        'meta_stealth': [tag for tag in UNIQUE_TAGS if 'stealth' in tag],
         'meta_strategy': [tag for tag in UNIQUE_TAGS if 'strategy' in tag],
+        'meta_survival': [tag for tag in UNIQUE_TAGS if 'survival' in tag],
+        'meta_tactical': [tag for tag in UNIQUE_TAGS if 'tactical' in tag],
+        'meta_turn_based': [tag for tag in UNIQUE_TAGS if 'turn-based' in tag or 'turn based' in tag],
+        # Style / Setting
+        'meta_first_person': [tag for tag in UNIQUE_TAGS if 'first-person' in tag or 'first person' in tag],
         'meta_third_person': [tag for tag in UNIQUE_TAGS if 'third-person' in tag or 'third person' in tag],
-        'meta_turn_based': [tag for tag in UNIQUE_TAGS if 'turn-based' in tag or 'turn based' in tag]
+        'meta_2d': [tag for tag in UNIQUE_TAGS if '2d' in tag or '2.5d' in tag],
+        'meta_3d': [tag for tag in UNIQUE_TAGS if '3d' in tag],
+        'meta_aliens': [tag for tag in UNIQUE_TAGS if 'alien' in tag],
+        'meta_anime': [tag for tag in UNIQUE_TAGS if 'anime' in tag],
+        'meta_atmospheric': [tag for tag in UNIQUE_TAGS if 'atmospheric' in tag],
+        'meta_comedy': [tag for tag in UNIQUE_TAGS if 'comedy' in tag or 'funny' in tag],
+        'meta_fantasy': [tag for tag in UNIQUE_TAGS if 'fantasy' in tag],
+        'meta_gore': [tag for tag in UNIQUE_TAGS if 'blood' in tag or 'gore' in tag or 'violent' in tag],
+        'meta_historical': [tag for tag in UNIQUE_TAGS if 'historical' in tag or 'history' in tag],
+        'meta_horror': [tag for tag in UNIQUE_TAGS if 'horror' in tag],
+        'meta_magic': [tag for tag in UNIQUE_TAGS if 'magic' in tag],
+        'meta_medieval': [tag for tag in UNIQUE_TAGS if 'medieval' in tag],
+        'meta_narrative': [tag for tag in UNIQUE_TAGS if 'narrative' in tag or 'story rich' in tag or 'multiple endings'],
+        'meta_pixel': [tag for tag in UNIQUE_TAGS if 'pixel' in tag],
+        'meta_retro': [tag for tag in UNIQUE_TAGS if 'retro' in tag or 'classic' in tag],
+        'meta_post_apocalyptic': [tag for tag in UNIQUE_TAGS if 'post-apocalyptic' in tag or 'post apocalyptic' in tag],
+        'meta_robots': [tag for tag in UNIQUE_TAGS if 'robots' in tag],
+        'meta_scifi': [tag for tag in UNIQUE_TAGS if 'sci-fi' in tag or 'science fiction' in tag],
+        'meta_soundtrack': [tag for tag in UNIQUE_TAGS if 'soundtrack' in tag],
+        'meta_space': [tag for tag in UNIQUE_TAGS if 'space' in tag],
+        'meta_sword': [tag for tag in UNIQUE_TAGS if 'sword' in tag],
     }
     for idx, row in df.iterrows():
         for meta_tag in meta_tags.keys():
@@ -338,6 +377,10 @@ def process_data(df):
         return df_tags
 
     df = df.merge(explode_binary(df, 'tags'), how='inner', right_index=True, left_index=True, suffixes=(None, None)).drop(['tags'], axis=1).drop_duplicates()
+
+    # Drop all tags that aren't meta
+    keep_cols = [col for col in df.columns if 'tags' not in col or 'tags_meta_' in col]
+    df = df[keep_cols]
 
     ### Embeddings
     model = SentenceTransformer('all-mpnet-base-v2')
