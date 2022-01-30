@@ -388,7 +388,9 @@ def process_data(df):
     tag_int_cols = [(col1, col2) for col1 in tag_cols for col2 in tag_cols if col1 != col2]
 
     for col1, col2 in tag_int_cols:
-        df['tags_meta_' + col1.replace('tags_meta_', '') + '_' + col2.replace('tags_meta_', '')] = df[col1]*df[col2]
+        reverse_int_name = 'tags_int_' + col2.replace('tags_meta_', '') + '_' + col1.replace('tags_meta_', '')
+        if reverse_int_name not in df.columns:
+            df['tags_int_' + col1.replace('tags_meta_', '') + '_' + col2.replace('tags_meta_', '')] = df[col1]*df[col2]
 
     ### Embeddings
     model = SentenceTransformer('all-mpnet-base-v2')

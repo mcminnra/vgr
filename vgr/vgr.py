@@ -245,7 +245,17 @@ if __name__ == '__main__':
 
     print('\n== Negative Features by Correlation+Importance ==')
     for col, corr, shap_imp in c_i[-10:]:
-        print(f'{col}: {corr:0.3}//{shap_imp:0.3f}')
+        print(f'{col}: {corr:0.3f}//{shap_imp:0.3f}')
+
+    print('\n== Positive Meta Features by Correlation+Importance ==')
+    for col, corr, shap_imp in c_i[:10]:
+        if 'meta' in col:
+            print(f'{col}: {corr:0.3f}//{shap_imp:0.3f}')
+
+    print('\n== Negative meta Features by Correlation+Importance ==')
+    for col, corr, shap_imp in [-10:]:
+        if 'meta' in col:
+            print(f'{col}: {corr:0.3f}//{shap_imp:0.3f}')
     
     # Output File
     df_pred.to_csv(str(pathlib.Path(__file__).parent.parent.absolute()) + f'/data/scores_{today.year}_{today.month}_{today.day}.csv')
