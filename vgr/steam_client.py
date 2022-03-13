@@ -14,9 +14,10 @@ WAIT_TIME = 0.1
 class SteamClient():
     """API Client for Steam"""
 
-    def __init__(self, url_name, user_id):
+    def __init__(self, url_name, user_id, web_api_key):
         self.url_name = url_name
         self.user_id = user_id
+        self.web_api_key = web_api_key
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(5))
     def get_steam_library(self):
@@ -35,6 +36,17 @@ class SteamClient():
             games.append(game)
 
         return games
+
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(5))
+    def get_steam_library_ids(self):
+        """
+        Gets appids from steam library
+        """
+        r = requests.get(f'http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key={self.web_api_key}&steamid={self.user_id}&format=json')
+        ids_json = json.loads(r.text)
+
+        return [game['appid'] for game in ids_json['response']['games']]
+
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(5))
     def get_steam_wishlist(self):
@@ -57,6 +69,27 @@ class SteamClient():
                 page_counter = -1
 
         return games
+
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(5))
+    def get_steam_wishlist_ids(self):
+        """
+        Gets appids from steam wishlist
+        """
+        # Iterate through wishlist pages
+        steam_ids = []
+        page_counter = 0
+        while page_counter >= 0:
+            r = requests.get(f'https://store.steampowered.com/wishlist/profiles/{self.user_id}/wishlistdata/?p={page_counter}', timeout=60)
+            time.sleep(WAIT_TIME)
+        
+            wishlist = json.loads(r.text)
+            if wishlist:
+                steam_ids += list(wishlist.keys())
+                page_counter += 1
+            else:
+                page_counter = -1
+
+        return steam_ids
 
     @retry(stop=stop_after_attempt(3), wait=wait_fixed(5))
     def get_steam_search_page(self, steam_url):
