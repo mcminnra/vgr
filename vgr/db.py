@@ -127,6 +127,10 @@ def get_games():
     with engine.connect() as con:
         return pd.read_sql_query(text("SELECT * from games"), con)
 
+def get_reviews():
+    with engine.connect() as con:
+        return pd.read_sql_query(text("SELECT * from reviews"), con)
+
 
 def init_games():
     with engine.connect() as con:

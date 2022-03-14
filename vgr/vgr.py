@@ -61,14 +61,20 @@ if __name__ == '__main__':
     # ==============================================================================================
     # Get Data
     # ==============================================================================================
-    logger.debug('Starting get_data()')
-    df = get_data(config)
+    # logger.debug('Starting get_data()')
+    # df = get_data(config)
 
     # ==============================================================================================
     # Data processing and Feature Engineering
     # ==============================================================================================
     logger.debug('Starting process_data()')
-    df = process_data(df)
+    from db import init_games, get_games, get_reviews
+    init_games()
+    df_games = get_games()
+    df_reviews = get_reviews()
+    df_reviews = df_reviews.rename(columns={'title': 'input_name', 'rating': 'personal_rating'})[['igdb_id', 'steam_id', 'input_name', 'personal_rating']]
+    df = df_games.merge(df_reviews, how='left', on=['igdb_id', 'steam_id'])
+    df = process_data(df)  # TODO Make sure tag lists are getting convert to list + fix input names fo not rated games
 
     # ==============================================================================================
     # Model Training
@@ -253,7 +259,7 @@ if __name__ == '__main__':
             print(f'{col}: {corr:0.3f}//{shap_imp:0.3f}')
 
     print('\n== Negative meta Features by Correlation+Importance ==')
-    for col, corr, shap_imp in [-10:]:
+    for col, corr, shap_imp in c_i[-10:]:
         if 'meta' in col:
             print(f'{col}: {corr:0.3f}//{shap_imp:0.3f}')
     
