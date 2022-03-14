@@ -16,6 +16,7 @@ dependencies:
   - requests
   - scikit-learn
   - shap
+  - sqlalchemy
   - tenacity
   - tqdm
   - pip
