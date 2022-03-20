@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import ast
 from datetime import date
 import logging
 import pathlib
@@ -14,6 +15,7 @@ import shap
 from xgboost import XGBRegressor
 import yaml
 
+from db import init_games, get_games, get_reviews
 from etl import get_data, process_data
 
 # Globals
@@ -61,20 +63,21 @@ if __name__ == '__main__':
     # ==============================================================================================
     # Get Data
     # ==============================================================================================
-    # logger.debug('Starting get_data()')
-    # df = get_data(config)
+    logger.debug('Refreshing database')
+    init_games()
 
     # ==============================================================================================
     # Data processing and Feature Engineering
     # ==============================================================================================
     logger.debug('Starting process_data()')
-    from db import init_games, get_games, get_reviews
-    init_games()
+    
+    # Get games and add reviews
     df_games = get_games()
     df_reviews = get_reviews()
     df_reviews = df_reviews.rename(columns={'title': 'input_name', 'rating': 'personal_rating'})[['igdb_id', 'steam_id', 'input_name', 'personal_rating']]
     df = df_games.merge(df_reviews, how='left', on=['igdb_id', 'steam_id'])
-    df = process_data(df)  # TODO Make sure tag lists are getting convert to list + fix input names fo not rated games
+
+    df = process_data(df)
 
     # ==============================================================================================
     # Model Training

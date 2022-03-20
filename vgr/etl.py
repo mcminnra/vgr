@@ -216,17 +216,12 @@ def process_data(df):
 
     Note: prefix "feat_" is columns used for training
     """
-    # Drop unneeded cols
-    df = df.drop([
-            'igdb_name',
-            'igdb_status',
-            'igdb_first_release_date',
-            'steam_name'
-        ], axis=1)
-
     # =========================================================================
     # Data Clean
     # =========================================================================
+    # Set input_name
+    df['input_name'] = df['input_name'].fillna(df['igdb_name'])
+
     ### Filters
     df = df[df['igdb_category'] != 'dlc_addon']
 
@@ -242,6 +237,14 @@ def process_data(df):
     df['igdb_keywords'] = df['igdb_keywords'].apply(lambda d: d if isinstance(d, list) else [])
     df['igdb_themes'] = df['igdb_themes'].apply(lambda d: d if isinstance(d, list) else [])
     df['steam_tags'] = df['steam_tags'].apply(lambda d: d if isinstance(d, list) else [])
+
+    # Drop unneeded cols
+    df = df.drop([
+            'igdb_name',
+            'igdb_status',
+            'igdb_first_release_date',
+            'steam_name'
+        ], axis=1)
 
     # =========================================================================
     # Coalesce Cols

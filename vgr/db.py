@@ -1,3 +1,4 @@
+import ast
 from enum import Enum
 import logging
 import pathlib
@@ -58,6 +59,14 @@ class IGDBGameStatus(Enum):
     cancelled=6
     rumored=7
     delisted=8
+
+
+def literal_return(val):
+        try:
+            return ast.literal_eval(val)
+        except (ValueError, SyntaxError) as e:
+            return val
+
 
 def get_igdb_data(igdb_id):
     igdb_metadata = igdb_client.get_game(igdb_id)
@@ -125,7 +134,15 @@ def get_steam_data(steam_id):
 
 def get_games():
     with engine.connect() as con:
-        return pd.read_sql_query(text("SELECT * from games"), con)
+        df = pd.read_sql_query(text("SELECT * from games"), con)
+
+        df['igdb_genres'] = df['igdb_genres'].apply(lambda x: literal_return(x))
+        df['igdb_keywords'] = df['igdb_keywords'].apply(lambda x: literal_return(x))
+        df['igdb_themes'] = df['igdb_themes'].apply(lambda x: literal_return(x))
+        df['steam_tags'] = df['steam_tags'].apply(lambda x: literal_return(x))
+
+        return df
+        
 
 def get_reviews():
     with engine.connect() as con:
